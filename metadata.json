@@ -1,0 +1,5 @@
+{
+  "name": "¿Qué cocino hoy?",
+  "description": "Un asistente de cocina inteligente que genera recetas deliciosas basándose en los ingredientes que ya tenés en tu heladera.",
+  "requestFramePermissions": []
+}
