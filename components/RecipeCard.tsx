@@ -44,9 +44,17 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
             className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50" aria-hidden="true">
-            <ChefHat size={48} className="mb-2 opacity-30" />
-            <span className="text-xs uppercase tracking-widest font-semibold opacity-60">Imagen no disponible</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 relative overflow-hidden" aria-hidden="true">
+            {/* Decorative circles */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-200/30 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-yellow-200/30 rounded-full blur-2xl"></div>
+
+            {/* Icon and text */}
+            <div className="relative z-10 flex flex-col items-center">
+              <ChefHat size={56} className="mb-3 text-orange-400/60" strokeWidth={1.5} />
+              <span className="text-xs uppercase tracking-widest font-bold text-orange-600/70">Receta guardada</span>
+              <span className="text-[10px] text-orange-500/50 mt-1">Sin imagen</span>
+            </div>
           </div>
         )}
         {/* Gradient Overlay */}
