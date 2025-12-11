@@ -45,7 +45,7 @@ export default function App() {
       try {
         const favs = await favoritesService.getFavorites();
         setFavorites(favs);
-        const hist = historyService.getHistory();
+        const hist = await historyService.getHistory();
         setHistory(hist);
       } catch (e) {
         console.error("Initialization error", e);
@@ -135,7 +135,7 @@ export default function App() {
     try {
        // Save to history wrapped in try-catch to prevent crash
       try {
-        const updatedHistory = historyService.addToHistory(ingredients);
+        const updatedHistory = await historyService.addToHistory(ingredients);
         setHistory(updatedHistory);
       } catch (hErr) {
         console.warn("Could not save history", hErr);
