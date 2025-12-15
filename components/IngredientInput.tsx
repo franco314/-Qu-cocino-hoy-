@@ -42,6 +42,26 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    // Si el valor contiene una coma, dividir y agregar el ingrediente
+    if (value.includes(',')) {
+      const parts = value.split(',');
+      // Agregar todos los ingredientes excepto el último (que puede estar incompleto)
+      for (let i = 0; i < parts.length - 1; i++) {
+        const trimmed = parts[i].trim();
+        if (trimmed && !ingredients.includes(trimmed)) {
+          onAdd(trimmed);
+        }
+      }
+      // Mantener la última parte (después de la última coma) en el input
+      setInputValue(parts[parts.length - 1]);
+    } else {
+      setInputValue(value);
+    }
+  };
+
   const handleQuickAdd = (ing: string) => {
     if (!ingredients.includes(ing)) {
       onAdd(ing);
@@ -93,7 +113,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
             className="flex-grow min-w-[150px] outline-none bg-transparent text-lg placeholder-gray-500 text-gray-900 h-10"
             placeholder={ingredients.length === 0 ? "Escribí lo que tenés (ej: pollo, arroz...)" : "Agregá otro ingrediente..."}
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={handleChange}
             onKeyDown={handleKeyDown}
             onBlur={addIngredient}
             autoComplete="off"
