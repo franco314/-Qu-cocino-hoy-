@@ -383,8 +383,8 @@ export const generateRecipes = onCall(
       }
 
       const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
-      // Gemini 3 Flash: modelo más avanzado con razonamiento Pro, velocidad optimizada y precisión superior
-      const modelId = "gemini-3-flash";
+      // Gemini 3 Flash Preview: modelo más avanzado con razonamiento Pro, velocidad optimizada y precisión superior
+      const modelId = "gemini-3-flash-preview";
 
       const ingredientsList = ingredients.join(", ");
 
