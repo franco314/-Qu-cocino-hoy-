@@ -8,6 +8,16 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Recetas compartidas: cualquiera puede leer, solo autenticados pueden escribir
+    match /shared_recipes/{recipeId} {
+      // Cualquier persona puede leer recetas compartidas (para links públicos)
+      allow read: if true;
+      // Solo usuarios autenticados pueden compartir recetas
+      allow create: if request.auth != null;
+      // No se permite actualizar ni eliminar recetas compartidas
+      allow update, delete: if false;
+    }
+
     // Denegar acceso a todo lo demás por defecto
     match /{document=**} {
       allow read, write: if false;

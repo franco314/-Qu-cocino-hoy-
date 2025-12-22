@@ -9,6 +9,11 @@ export interface Recipe {
   missingIngredients: string[];
   instructions: string[];
   imageUrl?: string;
+  macros?: {
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
 }
 
 export enum AppState {

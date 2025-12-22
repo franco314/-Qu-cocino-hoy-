@@ -1,5 +1,12 @@
 import { Recipe } from "../types";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../config/firebase";
+
+export interface DietFilters {
+  vegetarian: boolean;
+  vegan: boolean;
+  glutenFree: boolean;
+}
 
 /**
  * Service to generate recipes using Firebase Cloud Functions.
@@ -8,16 +15,19 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 export const generateRecipes = async (
   ingredients: string[],
   useStrictMatching: boolean,
-  excludeRecipes: string[] = []
+  excludeRecipes: string[] = [],
+  isPremium: boolean = false,
+  dietFilters: DietFilters = { vegetarian: false, vegan: false, glutenFree: false }
 ): Promise<Recipe[]> => {
   try {
-    const functions = getFunctions();
     const generateRecipesFunction = httpsCallable(functions, "generateRecipes");
 
     const response = await generateRecipesFunction({
       ingredients,
       useStrictMatching,
       excludeRecipes,
+      isPremium,
+      dietFilters,
     });
 
     const data = response.data as { recipes: Recipe[] };
