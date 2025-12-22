@@ -339,13 +339,23 @@ export const HomePage = () => {
                         <Lock size={14} className="text-red-600" />
                       )}
                     </div>
-                    {/* Premium CTA Button */}
+                    {/* Premium CTA Button - Calls startSubscription directly */}
                     <button
-                      onClick={() => setShowFavoriteLimitModal(true)}
-                      className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2"
+                      onClick={startSubscription}
+                      disabled={isSubscribing}
+                      className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2 disabled:opacity-70 disabled:cursor-wait"
                     >
-                      <span>✨</span>
-                      <span>Plan Chef</span>
+                      {isSubscribing ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                          <span>Procesando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>✨</span>
+                          <span>Plan Chef</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -660,6 +670,24 @@ export const HomePage = () => {
         onClose={() => setShowFavoriteLimitModal(false)}
         onUpgrade={startSubscription}
       />
+
+      {/* Global Subscription Loading Overlay */}
+      {isSubscribing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 animate-fade-in max-w-sm mx-4">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ChefHat size={24} className="text-orange-500" />
+              </div>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Preparando tu suscripción</h3>
+              <p className="text-sm text-gray-500">Conectando con Mercado Pago...</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
