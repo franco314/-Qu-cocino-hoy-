@@ -128,9 +128,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('❌ [startSubscription] No se recibió init_point válido');
         throw new Error('No se pudo generar el link de pago');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('💥 [startSubscription] Error:', error);
-      throw error;
+
+      // Extract detailed error message from Firebase Functions
+      let errorMessage = 'Error desconocido al crear la suscripción';
+
+      if (error && typeof error === 'object') {
+        const firebaseError = error as {
+          code?: string;
+          message?: string;
+          details?: unknown;
+        };
+
+        console.error('   Code:', firebaseError.code);
+        console.error('   Message:', firebaseError.message);
+        console.error('   Details:', firebaseError.details);
+
+        // Firebase Functions errors have the message in the format "Firebase: Error message (functions/error-code)"
+        if (firebaseError.message) {
+          // Try to extract the actual error message
+          const match = firebaseError.message.match(/^(.+?)(?:\s*\(functions\/|$)/);
+          errorMessage = match ? match[1] : firebaseError.message;
+        }
+      }
+
+      // Re-throw with the detailed message for the UI to display
+      throw new Error(errorMessage);
     } finally {
       setIsSubscribing(false);
       console.log('🏁 [startSubscription] Flujo finalizado');

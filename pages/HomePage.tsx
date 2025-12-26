@@ -35,7 +35,7 @@ interface DietFilters {
 }
 
 export const HomePage = () => {
-  const { user, isPremium, isSubscribing, startSubscription, devTogglePremium } = useAuth();
+  const { user, isPremium, isSubscribing, startSubscription } = useAuth();
 
   // State changed from object to array of strings
   const [ingredients, setIngredients] = useState<string[]>([]);
@@ -307,7 +307,7 @@ export const HomePage = () => {
           </nav>
 
           {/* Auth Section */}
-          {user ? <UserProfile /> : <LoginButton />}
+          {user ? <UserProfile onShowPremiumModal={() => setShowFavoriteLimitModal(true)} /> : <LoginButton />}
           </div>
         </div>
       </header>
@@ -339,23 +339,13 @@ export const HomePage = () => {
                         <Lock size={14} className="text-red-600" />
                       )}
                     </div>
-                    {/* Premium CTA Button - Calls startSubscription directly */}
+                    {/* Premium CTA Button - Opens modal with benefits first */}
                     <button
-                      onClick={startSubscription}
-                      disabled={isSubscribing}
-                      className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2 disabled:opacity-70 disabled:cursor-wait"
+                      onClick={() => setShowFavoriteLimitModal(true)}
+                      className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2"
                     >
-                      {isSubscribing ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                          <span>Procesando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>✨</span>
-                          <span>Plan Chef</span>
-                        </>
-                      )}
+                      <span>✨</span>
+                      <span>Plan Chef</span>
                     </button>
                   </div>
                 )}
@@ -474,36 +464,46 @@ export const HomePage = () => {
                     <span>Vegetariano</span>
                   </button>
 
-                  {/* Vegano - Premium only */}
+                  {/* Vegano - Premium only (opens modal if not premium) */}
                   <button
-                    onClick={() => isPremium && setDietFilters(prev => ({ ...prev, vegan: !prev.vegan }))}
+                    onClick={() => {
+                      if (!isPremium) {
+                        setShowFavoriteLimitModal(true);
+                      } else {
+                        setDietFilters(prev => ({ ...prev, vegan: !prev.vegan }));
+                      }
+                    }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
                       !isPremium
-                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                        ? 'bg-gray-100 text-gray-400 border-gray-200 hover:border-orange-300 hover:bg-orange-50 cursor-pointer'
                         : dietFilters.vegan
                           ? 'bg-green-600 text-white border-green-600 shadow-md'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-green-500 hover:text-green-600'
                     }`}
-                    disabled={!isPremium}
-                    title={!isPremium ? 'Disponible en Premium' : 'Filtrar recetas veganas'}
+                    title={!isPremium ? 'Disponible en Plan Chef - Clic para ver beneficios' : 'Filtrar recetas veganas'}
                   >
                     {!isPremium && <Lock size={12} className="text-gray-400" />}
                     <Leaf size={14} />
                     <span>Vegano</span>
                   </button>
 
-                  {/* Sin TACC - Premium only */}
+                  {/* Sin TACC - Premium only (opens modal if not premium) */}
                   <button
-                    onClick={() => isPremium && setDietFilters(prev => ({ ...prev, glutenFree: !prev.glutenFree }))}
+                    onClick={() => {
+                      if (!isPremium) {
+                        setShowFavoriteLimitModal(true);
+                      } else {
+                        setDietFilters(prev => ({ ...prev, glutenFree: !prev.glutenFree }));
+                      }
+                    }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
                       !isPremium
-                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                        ? 'bg-gray-100 text-gray-400 border-gray-200 hover:border-orange-300 hover:bg-orange-50 cursor-pointer'
                         : dietFilters.glutenFree
                           ? 'bg-amber-500 text-white border-amber-500 shadow-md'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-amber-500 hover:text-amber-600'
                     }`}
-                    disabled={!isPremium}
-                    title={!isPremium ? 'Disponible en Premium' : 'Filtrar recetas sin gluten'}
+                    title={!isPremium ? 'Disponible en Plan Chef - Clic para ver beneficios' : 'Filtrar recetas sin gluten'}
                   >
                     {!isPremium && <Lock size={12} className="text-gray-400" />}
                     <Wheat size={14} />
@@ -647,22 +647,6 @@ export const HomePage = () => {
           </div>
         </footer>
       )}
-
-      {/* DEV TOOLS - Toggle para testing */}
-      <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded-xl z-50 text-xs shadow-2xl backdrop-blur-md border border-gray-700">
-        <p className="font-bold mb-2 text-gray-400 uppercase tracking-wider">DEV: Estado</p>
-        <div className="flex gap-2">
-          <button
-            onClick={devTogglePremium}
-            className={`px-3 py-1.5 rounded transition-colors ${isPremium ? 'bg-gradient-to-r from-orange-400 to-orange-600 text-white font-bold' : 'bg-gray-700 text-gray-300'}`}
-          >
-            {isPremium ? '✨ Premium' : '🌑 Free'}
-          </button>
-        </div>
-        <div className="mt-2 pt-2 border-t border-gray-600 text-[10px] text-gray-400 text-center">
-          {isPremium ? 'Generando Img + Filtros' : 'Solo Texto'}
-        </div>
-      </div>
 
       {/* Favorite Limit Modal */}
       <FavoriteLimitModal

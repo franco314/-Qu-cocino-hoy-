@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, User as UserIcon, Crown, Loader2 } from 'lucide-react';
+import { LogOut, User as UserIcon, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-export const UserProfile: React.FC = () => {
-  const { user, signOut, isPremium, isSubscribing, startSubscription } = useAuth();
+interface UserProfileProps {
+  onShowPremiumModal?: () => void;
+}
+
+export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal }) => {
+  const { user, signOut, isPremium } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -92,28 +96,14 @@ export const UserProfile: React.FC = () => {
           ) : (
             <div className="px-4 py-2 border-b border-gray-100">
               <button
-                onClick={async () => {
-                  try {
-                    await startSubscription();
-                    setIsOpen(false);
-                  } catch (error) {
-                    console.error('Error starting subscription:', error);
-                  }
+                onClick={() => {
+                  setIsOpen(false);
+                  onShowPremiumModal?.();
                 }}
-                disabled={isSubscribing}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:shadow-md hover:from-orange-600 hover:to-orange-700 transition-all duration-300 disabled:opacity-70 disabled:cursor-wait"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:shadow-md hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
               >
-                {isSubscribing ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>Procesando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Crown size={14} />
-                    <span>Pasarme a Premium</span>
-                  </>
-                )}
+                <Crown size={14} />
+                <span>Pasarme a Premium</span>
               </button>
             </div>
           )}

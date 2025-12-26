@@ -30,9 +30,12 @@ setGlobalOptions({maxInstances: 10});
 export const createSubscription = onCall(
   {secrets: [mercadoPagoAccessToken]},
   async (request) => {
+    logger.info("🚀 [createSubscription] Iniciando...");
+
     try {
       // Verify user is authenticated
       if (!request.auth) {
+        logger.warn("❌ [createSubscription] Usuario no autenticado");
         throw new HttpsError(
           "unauthenticated",
           "Debes iniciar sesión para suscribirte"
@@ -42,54 +45,132 @@ export const createSubscription = onCall(
       const userId = request.auth.uid;
       const userEmail = request.auth.token.email || request.data.email;
 
+      logger.info(`👤 [createSubscription] Usuario: ${userId}, Email: ${userEmail}`);
+
       if (!userEmail) {
+        logger.warn("❌ [createSubscription] Email no proporcionado");
         throw new HttpsError(
           "invalid-argument",
           "Se requiere un email para la suscripción"
         );
       }
 
+      // Verify access token is available and clean it (remove any whitespace/newlines)
+      const rawToken = mercadoPagoAccessToken.value();
+      if (!rawToken) {
+        logger.error("❌ [createSubscription] MERCADOPAGO_ACCESS_TOKEN no está configurado");
+        throw new HttpsError(
+          "failed-precondition",
+          "Configuración de pagos no disponible"
+        );
+      }
+      // CRITICAL: trim() removes any trailing newlines that break HTTP headers
+      const accessToken = rawToken.trim();
+      logger.info(`🔑 [createSubscription] Access token disponible (${accessToken.substring(0, 15)}..., length: ${accessToken.length})`);
+
       // Initialize Mercado Pago client
       const client = new MercadoPagoConfig({
-        accessToken: mercadoPagoAccessToken.value(),
+        accessToken: accessToken,
       });
 
       const preApproval = new PreApproval(client);
 
-      // Get the frontend URL for redirects
-      const frontendUrl = request.data.frontendUrl || "https://quecocinohoy.com";
+      // URL de producción - dominio principal de la app
+      const PRODUCTION_URL = "https://que-cocino-hoy-f06bd.web.app";
 
-      // Create the subscription (PreApproval)
-      const subscriptionData = await preApproval.create({
-        body: {
-          reason: "Plan Chef - ¿Qué Cocino Hoy?",
-          auto_recurring: {
-            frequency: 1,
-            frequency_type: "months",
-            transaction_amount: 3500,
-            currency_id: "ARS",
-          },
-          back_url: `${frontendUrl}/subscription/success`,
-          payer_email: userEmail,
-          external_reference: userId, // Link subscription to user
-          status: "pending",
+      // Get the frontend URL from request (useful for debugging)
+      const requestedUrl = request.data.frontendUrl || PRODUCTION_URL;
+
+      // Detectar si la petición viene de desarrollo local
+      const isLocalDev = requestedUrl.includes("localhost") || requestedUrl.includes("127.0.0.1");
+
+      // Para la back_url de Mercado Pago:
+      // - SIEMPRE usar la URL de producción para back_url
+      // - Mercado Pago requiere URLs públicas válidas
+      // - Esto garantiza que el usuario siempre vuelva a la app correctamente
+      const backUrl = `${PRODUCTION_URL}/subscription/success`;
+
+      logger.info(`🔗 [createSubscription] back_url: ${backUrl}`);
+      if (isLocalDev) {
+        logger.info(`🔧 [createSubscription] Petición desde entorno local detectada`);
+      }
+
+      // Use the real user email for production
+      // For test mode, both access token AND payer must be test users
+      const payerEmail = userEmail;
+      logger.info(`💳 [createSubscription] Usando payer_email: ${payerEmail}`);
+
+      // Build subscription request body
+      const subscriptionBody = {
+        reason: "Plan Chef - Que Cocino Hoy",
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months" as const,
+          transaction_amount: 3500,
+          currency_id: "ARS",
         },
+        back_url: backUrl,
+        payer_email: payerEmail,
+        external_reference: userId,
+        status: "pending" as const,
+      };
+
+      // Log the request body (without sensitive data)
+      logger.info("📦 [createSubscription] Request body:", {
+        reason: subscriptionBody.reason,
+        auto_recurring: subscriptionBody.auto_recurring,
+        back_url: subscriptionBody.back_url,
+        payer_email: subscriptionBody.payer_email,
+        external_reference: subscriptionBody.external_reference,
+        status: subscriptionBody.status,
       });
 
+      // Create the subscription (PreApproval)
+      logger.info("📡 [createSubscription] Llamando a Mercado Pago API...");
+      const subscriptionData = await preApproval.create({
+        body: subscriptionBody,
+      });
+
+      logger.info("✅ [createSubscription] Respuesta de Mercado Pago:", {
+        id: subscriptionData.id,
+        status: subscriptionData.status,
+        init_point: subscriptionData.init_point ? "presente" : "ausente",
+      });
+
+      if (!subscriptionData.init_point) {
+        logger.error("❌ [createSubscription] init_point no recibido de Mercado Pago");
+        throw new HttpsError(
+          "internal",
+          "Mercado Pago no devolvió el link de pago"
+        );
+      }
+
       // Save subscription info to Firestore
+      // Esta información es CRÍTICA para que el webhook pueda identificar al usuario
+      logger.info("💾 [createSubscription] Guardando en Firestore...");
       await db.collection("subscriptions").doc(userId).set({
-        odId: subscriptionData.id,
+        // ID de Mercado Pago - usado por el webhook para consultar la suscripción
+        mpId: subscriptionData.id,
+        // Estado inicial de la suscripción
         status: "pending",
+        // Email del usuario (para referencia y debugging)
         email: userEmail,
+        // Timestamps para tracking
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // Información del plan
         plan: "chef",
         amount: 3500,
         currency: "ARS",
+        // ID del usuario de Firebase (redundante pero útil para queries)
+        userId: userId,
+        // Origen del frontend (para debugging)
+        requestedUrl: requestedUrl,
+        // Indica si fue creado en modo desarrollo
+        isLocalDev: isLocalDev,
       }, {merge: true});
 
-      logger.info(`Subscription created for user ${userId}`, {
-        subscriptionId: subscriptionData.id,
-      });
+      logger.info(`🎉 [createSubscription] Suscripción creada exitosamente para ${userId}`);
 
       return {
         success: true,
@@ -97,15 +178,47 @@ export const createSubscription = onCall(
         subscriptionId: subscriptionData.id,
       };
     } catch (error: unknown) {
-      logger.error("Error creating subscription:", error);
+      // Detailed error logging
+      logger.error("💥 [createSubscription] Error capturado:");
 
       if (error instanceof HttpsError) {
+        logger.error(`   HttpsError: ${error.code} - ${error.message}`);
         throw error;
       }
 
+      // Handle Mercado Pago specific errors
+      if (error && typeof error === "object") {
+        const mpError = error as {
+          message?: string;
+          cause?: unknown;
+          status?: number;
+          response?: {data?: unknown};
+        };
+
+        logger.error("   Tipo: Error de Mercado Pago o desconocido");
+        logger.error(`   Message: ${mpError.message || "No message"}`);
+        logger.error(`   Status: ${mpError.status || "No status"}`);
+
+        if (mpError.cause) {
+          logger.error("   Cause:", JSON.stringify(mpError.cause, null, 2));
+        }
+
+        if (mpError.response?.data) {
+          logger.error("   Response Data:", JSON.stringify(mpError.response.data, null, 2));
+        }
+
+        // Return more specific error message to frontend
+        const errorMessage = mpError.message || "Error desconocido de Mercado Pago";
+        throw new HttpsError(
+          "internal",
+          `Error de Mercado Pago: ${errorMessage}`
+        );
+      }
+
+      logger.error("   Error completo:", JSON.stringify(error, null, 2));
       throw new HttpsError(
         "internal",
-        "Error al crear la suscripción. Intenta nuevamente."
+        "Error inesperado al crear la suscripción"
       );
     }
   }
@@ -127,66 +240,85 @@ export const mercadoPagoWebhook = onRequest(
 
       const {type, data} = request.body;
 
-      logger.info("Webhook received:", {type, dataId: data?.id});
+      logger.info("🔔 [Webhook] Notificación recibida:", {type, dataId: data?.id});
 
       // Handle subscription (preapproval) updates
       if (type === "subscription_preapproval" && data?.id) {
+        logger.info("📋 [Webhook] Procesando actualización de suscripción...");
+
+        const rawToken = mercadoPagoAccessToken.value();
+        const accessToken = rawToken.trim();
+
         const client = new MercadoPagoConfig({
-          accessToken: mercadoPagoAccessToken.value(),
+          accessToken: accessToken,
         });
 
         const preApproval = new PreApproval(client);
 
-        // Get the full subscription details
+        // Get the full subscription details from Mercado Pago
         const subscription = await preApproval.get({id: data.id});
 
-        logger.info("Subscription details:", {
+        logger.info("📦 [Webhook] Detalles de suscripción de MP:", {
           id: subscription.id,
           status: subscription.status,
           externalReference: subscription.external_reference,
+          payerEmail: subscription.payer_email,
         });
 
+        // CRÍTICO: El external_reference contiene el userId de Firebase
         const userId = subscription.external_reference;
         const status = subscription.status;
 
         if (!userId) {
-          logger.warn("No user ID in external_reference");
+          logger.warn("⚠️ [Webhook] No se encontró userId en external_reference");
           response.status(200).send("OK");
           return;
         }
 
+        logger.info(`👤 [Webhook] Usuario identificado: ${userId}`);
+
         // Update subscription status in Firestore
+        const now = new Date().toISOString();
         await db.collection("subscriptions").doc(userId).set({
           mpId: subscription.id,
           status: status,
-          lastUpdated: new Date().toISOString(),
+          updatedAt: now,
+          lastWebhookAt: now,
           payerEmail: subscription.payer_email,
         }, {merge: true});
 
-        // If subscription is authorized/active, grant premium access
+        logger.info(`💾 [Webhook] Suscripción actualizada en Firestore: status=${status}`);
+
+        // If subscription is authorized/active, grant premium access INSTANTLY
         if (status === "authorized" || status === "active") {
           await db.collection("users").doc(userId).set({
             isPremium: true,
-            premiumSince: new Date().toISOString(),
+            premiumSince: now,
             subscriptionId: subscription.id,
+            premiumUpdatedAt: now,
           }, {merge: true});
 
-          logger.info(`User ${userId} upgraded to Premium!`);
+          logger.info(`✨ [Webhook] ¡Usuario ${userId} activado como Premium!`);
         } else if (status === "cancelled" || status === "paused") {
           // If subscription is cancelled, remove premium access
           await db.collection("users").doc(userId).set({
             isPremium: false,
-            premiumEndedAt: new Date().toISOString(),
+            premiumEndedAt: now,
+            premiumUpdatedAt: now,
           }, {merge: true});
 
-          logger.info(`User ${userId} premium access revoked`);
+          logger.info(`🌑 [Webhook] Acceso Premium revocado para ${userId}`);
+        } else {
+          logger.info(`ℹ️ [Webhook] Estado no actionable: ${status} para ${userId}`);
         }
+      } else {
+        logger.info(`ℹ️ [Webhook] Tipo de notificación ignorado: ${type}`);
       }
 
       // Always respond 200 to acknowledge receipt
       response.status(200).send("OK");
     } catch (error) {
-      logger.error("Webhook error:", error);
+      logger.error("💥 [Webhook] Error procesando notificación:", error);
       // Still respond 200 to prevent retries for unrecoverable errors
       response.status(200).send("OK");
     }

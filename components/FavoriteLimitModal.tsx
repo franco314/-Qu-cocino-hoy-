@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Lock, Star, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Lock, Star, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface FavoriteLimitModalProps {
   isOpen: boolean;
@@ -11,6 +11,13 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset error when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleUpgrade = async () => {
@@ -18,13 +25,24 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
     setError(null);
     try {
       await onUpgrade();
-      onClose();
-    } catch (err) {
-      setError('Error al iniciar la suscripción. Intentá de nuevo.');
-      console.error(err);
+      // No cerramos el modal aquí porque onUpgrade abre Mercado Pago en nueva pestaña
+      // El usuario puede cerrar manualmente si quiere
+    } catch (err: unknown) {
+      // Capturar mensaje detallado del error
+      let errorMessage = 'Error al iniciar la suscripción.';
+      if (err instanceof Error && err.message) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
+      console.error('Error en handleUpgrade:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    handleUpgrade();
   };
 
   return (
@@ -89,10 +107,22 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
           </div>
         </div>
 
-        {/* Error message */}
+        {/* Error message with retry */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm text-center">
-            {error}
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-red-700 text-sm font-medium mb-2">{error}</p>
+                <button
+                  onClick={handleRetry}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-800 transition-colors"
+                >
+                  <RefreshCw size={12} />
+                  Reintentar
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
