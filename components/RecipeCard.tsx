@@ -32,8 +32,8 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
   };
 
   return (
-    <article 
-      className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-500 flex flex-col relative focus-within:ring-2 focus-within:ring-orange-500/50"
+    <article
+      className="bg-white/80 backdrop-blur-md rounded-3xl overflow-hidden border border-white/30 shadow-sm hover:shadow-lg transition-all duration-500 flex flex-col relative focus-within:ring-2 focus-within:ring-orange-500/50"
       style={{ animationDelay: `${index * 150}ms` }}
     >
       {/* Image Section */}
@@ -151,8 +151,8 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
       </div>
 
       {/* Header Section */}
-      <div className="p-6 pt-5 bg-white">
-        <div className="flex items-center text-gray-500 text-xs font-bold uppercase tracking-wider mb-2 space-x-4">
+      <div className="p-6 pt-5 bg-white/50">
+        <div className="flex items-center text-gray-700 text-xs font-bold uppercase tracking-wider mb-2 space-x-4">
             <div className="flex items-center" title={`${recipe.calories} calorías`}>
                 <Flame size={14} className="mr-1 text-orange-600" aria-hidden="true" />
                 <span aria-label={`${recipe.calories} calorías`}>{recipe.calories} kcal</span>
@@ -167,18 +167,18 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
           {recipe.title}
         </h3>
         
-        <p className="text-gray-600 text-sm mb-2 leading-relaxed line-clamp-2">
+        <p className="text-gray-700 text-sm mb-2 leading-relaxed line-clamp-2">
           {recipe.description}
         </p>
       </div>
 
       {/* Missing Ingredients Warning */}
       {missingIngredients.length > 0 && (
-        <div className="bg-orange-50 px-6 py-3 border-t border-orange-100 flex items-start gap-3" role="note" aria-label="Sugerencia de ingredientes">
+        <div className="bg-orange-500/10 backdrop-blur-sm px-6 py-3 border-t border-orange-500/20 flex items-start gap-3" role="note" aria-label="Sugerencia de ingredientes">
           <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <p className="text-xs font-bold text-orange-800 uppercase tracking-wide mb-1">Le quedaría bien agregar:</p>
-            <p className="text-sm text-orange-800 font-medium">
+            <p className="text-xs font-bold text-orange-900 uppercase tracking-wide mb-1">Le quedaría bien agregar:</p>
+            <p className="text-sm text-orange-900 font-medium">
               {missingIngredients.join(', ')}
             </p>
           </div>
@@ -186,12 +186,12 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
       )}
 
       {/* Ingredients List */}
-      <div className="px-6 py-4 border-t border-gray-100">
+      <div className="px-6 py-4 border-t border-white/20 bg-white/30">
          <h4 className="flex items-center text-sm font-bold text-gray-900 mb-3">
-            <List size={16} className="mr-2 text-gray-500" aria-hidden="true" />
+            <List size={16} className="mr-2 text-gray-700" aria-hidden="true" />
             Ingredientes
          </h4>
-         <ul className="text-sm text-gray-700 space-y-1 mb-2">
+         <ul className="text-sm text-gray-800 space-y-1 mb-2">
             {ingredients.slice(0, isExpanded ? undefined : 4).map((ing, i) => (
                 <li key={i} className="flex items-start">
                     <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 mr-2 flex-shrink-0" aria-hidden="true"></span>
@@ -199,7 +199,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
                 </li>
             ))}
             {!isExpanded && ingredients.length > 4 && (
-                <li className="text-gray-500 italic text-xs pl-4">
+                <li className="text-gray-700 italic text-xs pl-4">
                     ...y {ingredients.length - 4} más
                 </li>
             )}
@@ -208,19 +208,19 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
 
       {/* Instructions (Toggle) */}
       {isExpanded && (
-        <div 
+        <div
           id={instructionsId}
-          className="px-6 py-4 border-t border-gray-100 bg-gray-50 animate-fadeIn"
+          className="px-6 py-4 border-t border-white/20 bg-white/30 animate-fadeIn"
           role="region"
           aria-label={`Instrucciones para ${recipe.title}`}
         >
           <h4 className="flex items-center text-sm font-bold text-gray-900 mb-3">
-            <ChefHat size={16} className="mr-2 text-gray-500" aria-hidden="true" />
+            <ChefHat size={16} className="mr-2 text-gray-700" aria-hidden="true" />
             Instrucciones
           </h4>
           <ol className="space-y-4">
             {instructions.map((step, i) => (
-              <li key={i} className="flex gap-3 text-sm text-gray-700">
+              <li key={i} className="flex gap-3 text-sm text-gray-800">
                 <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white border border-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 shadow-sm" aria-hidden="true">
                   {i + 1}
                 </span>
@@ -232,11 +232,11 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
       )}
 
       {/* Footer Action */}
-      <button 
+      <button
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={instructionsId}
-        className="mt-auto w-full py-3 px-6 bg-white hover:bg-gray-50 border-t border-gray-100 text-gray-700 text-sm font-medium flex items-center justify-center transition-colors focus:outline-none focus:bg-gray-50 focus:text-black focus:ring-inset focus:ring-2 focus:ring-gray-200"
+        className="mt-auto w-full py-3 px-6 bg-white/50 hover:bg-white/70 backdrop-blur-sm border-t border-white/20 text-gray-700 text-sm font-medium flex items-center justify-center transition-colors focus:outline-none focus:bg-white/70 focus:text-black focus:ring-inset focus:ring-2 focus:ring-orange-500/50"
       >
         {isExpanded ? (
             <>

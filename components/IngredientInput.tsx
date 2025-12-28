@@ -71,10 +71,10 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      {/* Main Input Container */}
-      <label 
+      {/* Main Input Container - Glassmorphism style */}
+      <label
         htmlFor="ingredient-input"
-        className="bg-white p-4 rounded-2xl border border-gray-300 shadow-sm focus-within:ring-2 focus-within:ring-black/10 focus-within:border-gray-400 transition-all duration-300 cursor-text relative z-20 block"
+        className="bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-lg focus-within:ring-2 focus-within:ring-orange-500/30 focus-within:shadow-xl transition-all duration-300 cursor-text relative z-20 block"
         onClick={(e) => {
           // Prevent focus loop if clicking on the input itself
           if (e.target !== inputRef.current) {
@@ -84,12 +84,12 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
       >
         <span className="sr-only">Ingresá los ingredientes que tenés en tu cocina</span>
         <div className="flex flex-wrap gap-2 items-center">
-          <Search className="text-gray-500 w-5 h-5 mr-1" aria-hidden="true" />
-          
+          <Search className="text-gray-400 w-5 h-5 mr-1" aria-hidden="true" />
+
           {ingredients.map((ing, index) => (
-            <span 
-              key={index} 
-              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-900 animate-fadeIn"
+            <span
+              key={index}
+              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-orange-100 text-orange-800 animate-fadeIn shadow-sm"
             >
               {ing}
               <button
@@ -99,7 +99,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
                   onRemove(ing);
                 }}
                 aria-label={`Eliminar ingrediente ${ing}`}
-                className="ml-2 p-0.5 rounded-full hover:bg-gray-200 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-black/20"
+                className="ml-2 p-0.5 rounded-full hover:bg-orange-200 text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20"
               >
                 <X size={14} aria-hidden="true" />
               </button>
@@ -110,7 +110,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
             id="ingredient-input"
             ref={inputRef}
             type="text"
-            className="flex-grow min-w-[150px] outline-none bg-transparent text-lg placeholder-gray-500 text-gray-900 h-10"
+            className="flex-grow min-w-[150px] outline-none bg-transparent text-lg placeholder-gray-400 text-gray-900 h-10"
             placeholder={ingredients.length === 0 ? "Escribí lo que tenés (ej: pollo, arroz...)" : "Agregá otro ingrediente..."}
             value={inputValue}
             onChange={handleChange}
@@ -121,25 +121,25 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
         </div>
       </label>
 
-      {/* History Section - Compact & Horizontal */}
+      {/* History Section - Floating style */}
       {history && history.length > 0 && onSelectHistory && (
-        <div 
-          className="mt-3 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide mask-gradient-right"
+        <div
+          className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
           role="group"
           aria-label="Combinaciones recientes"
         >
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex-shrink-0 mr-1 select-none" aria-hidden="true">
+          <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest flex-shrink-0 mr-1 select-none drop-shadow-sm" aria-hidden="true">
             Recientes
           </span>
           {history.map((histSet, idx) => {
             // Defensive check: ensure histSet is an array before trying to access it
             if (!Array.isArray(histSet)) return null;
-            
+
             return (
               <button
                 key={idx}
                 onClick={() => onSelectHistory(histSet)}
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white hover:bg-white hover:border-orange-300 hover:text-orange-700 hover:shadow-sm text-xs text-gray-600 transition-all duration-200 group whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-orange-500/40"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-xs text-gray-700 transition-all duration-200 group whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-orange-500/40 shadow-sm"
                 aria-label={`Usar combinación reciente: ${histSet.join(', ')}`}
               >
                 <Clock size={12} className="text-gray-400 group-hover:text-orange-500" aria-hidden="true" />
@@ -153,12 +153,12 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
         </div>
       )}
 
-      {/* Quick Add Suggestions */}
-      <div className="mt-6">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1" id="quick-add-label">
+      {/* Quick Add Suggestions - Floating chips */}
+      <div className="mt-5">
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1 drop-shadow-sm" id="quick-add-label">
           Agregá rápido los básicos
         </p>
-        <div 
+        <div
           className="flex flex-wrap gap-2"
           role="group"
           aria-labelledby="quick-add-label"
@@ -172,10 +172,10 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
                 disabled={isSelected}
                 aria-pressed={isSelected}
                 aria-label={isSelected ? `${ing} agregado` : `Agregar ${ing}`}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-black/10
-                  ${isSelected 
-                    ? 'bg-green-100 text-green-800 border-green-200 opacity-70 cursor-default' 
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400 hover:text-gray-900 hover:shadow-sm active:scale-95'
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20 shadow-sm backdrop-blur-sm
+                  ${isSelected
+                    ? 'bg-green-500/90 text-white cursor-default'
+                    : 'bg-white/80 text-gray-700 hover:bg-white hover:shadow-md active:scale-95'
                   }`}
               >
                 {isSelected ? <X size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}

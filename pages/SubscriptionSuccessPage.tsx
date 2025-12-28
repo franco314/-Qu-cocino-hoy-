@@ -33,7 +33,7 @@ export const SubscriptionSuccessPage: React.FC = () => {
 
   if (isVerifying) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-yellow-50 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-orange-400/20 rounded-full blur-2xl animate-pulse"></div>
@@ -46,7 +46,7 @@ export const SubscriptionSuccessPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-yellow-50 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       {/* Confetti-like decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-10 left-10 w-4 h-4 bg-orange-400 rounded-full opacity-60 animate-bounce" style={{ animationDelay: '0s' }}></div>
@@ -80,40 +80,40 @@ export const SubscriptionSuccessPage: React.FC = () => {
           </p>
 
           {/* Benefits Card */}
-          <div className="bg-white rounded-3xl shadow-xl p-6 mb-8 border border-orange-100">
+          <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-xl p-6 mb-8 border border-white/30">
             <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center justify-center gap-2">
               <Sparkles className="text-orange-500" size={20} />
               Ahora podés disfrutar de:
             </h2>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-3 bg-orange-50 rounded-xl">
+              <div className="flex items-center gap-4 p-3 bg-orange-500/10 backdrop-blur-sm rounded-xl border border-orange-500/20">
                 <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <Camera size={20} className="text-white" />
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-800">Fotos IA Profesionales</p>
-                  <p className="text-sm text-gray-600">Imágenes únicas para cada receta</p>
+                  <p className="text-sm text-gray-700">Imágenes únicas para cada receta</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 p-3 bg-green-50 rounded-xl">
+              <div className="flex items-center gap-4 p-3 bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20">
                 <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <Leaf size={20} className="text-white" />
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-800">Filtros de Dieta Premium</p>
-                  <p className="text-sm text-gray-600">Vegano, Sin TACC y más</p>
+                  <p className="text-sm text-gray-700">Vegano, Sin TACC y más</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 p-3 bg-red-50 rounded-xl">
+              <div className="flex items-center gap-4 p-3 bg-red-500/10 backdrop-blur-sm rounded-xl border border-red-500/20">
                 <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
                   <Heart size={20} className="text-white" />
                 </div>
                 <div className="text-left">
                   <p className="font-semibold text-gray-800">Favoritos Ilimitados</p>
-                  <p className="text-sm text-gray-600">Guardá todas las recetas que quieras</p>
+                  <p className="text-sm text-gray-700">Guardá todas las recetas que quieras</p>
                 </div>
               </div>
             </div>

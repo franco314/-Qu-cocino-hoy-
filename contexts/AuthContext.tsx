@@ -9,6 +9,8 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { auth, googleProvider, db, functions } from '../config/firebase';
 
+type PlanType = 'monthly' | 'yearly';
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -16,7 +18,7 @@ interface AuthContextType {
   isSubscribing: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  startSubscription: () => Promise<void>;
+  startSubscription: (planType?: PlanType) => Promise<void>;
   cancelSubscription: () => Promise<void>;
   refreshPremiumStatus: () => Promise<void>;
   // Dev mode toggle (only for testing)
@@ -93,9 +95,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Start a subscription flow with Mercado Pago
+   * @param planType - 'monthly' or 'yearly' (defaults to 'monthly')
    */
-  const startSubscription = useCallback(async () => {
+  const startSubscription = useCallback(async (planType: PlanType = 'monthly') => {
     console.log('🚀 [startSubscription] Iniciando flujo de suscripción...');
+    console.log(`📋 [startSubscription] Plan seleccionado: ${planType}`);
 
     if (!user) {
       console.error('❌ [startSubscription] Usuario no autenticado');
@@ -108,13 +112,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('📡 [startSubscription] Llamando a Cloud Function createSubscription...');
       const createSubscriptionFn = httpsCallable<
-        { email: string; frontendUrl: string },
+        { email: string; frontendUrl: string; planType: PlanType },
         { success: boolean; initPoint: string; subscriptionId: string }
       >(functions, 'createSubscription');
 
       const result = await createSubscriptionFn({
         email: user.email || '',
         frontendUrl: window.location.origin,
+        planType,
       });
 
       console.log('📦 [startSubscription] Respuesta recibida:', result.data);

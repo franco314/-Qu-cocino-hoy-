@@ -4,9 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface UserProfileProps {
   onShowPremiumModal?: () => void;
+  isHeroMode?: boolean;
 }
 
-export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal }) => {
+export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, isHeroMode = false }) => {
   const { user, signOut, isPremium } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -36,88 +37,73 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal }) 
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* User Avatar Button */}
+      {/* User Avatar Button - Glassmorphism */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-100 transition-colors"
+        className={`flex items-center gap-2 px-3 py-2 rounded-full backdrop-blur-sm transition-all duration-300 cursor-pointer ${
+          isHeroMode
+            ? 'bg-white/10 hover:bg-white/20 border border-white/20'
+            : 'bg-white/70 hover:bg-white/80'
+        }`}
       >
         {user.photoURL ? (
           <img
             src={user.photoURL}
             alt={user.displayName || 'User'}
-            className="w-8 h-8 rounded-full border-2 border-gray-200"
+            className={`w-7 h-7 rounded-full ${
+              isHeroMode ? 'border-2 border-white/30' : 'border border-gray-300'
+            }`}
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-            <UserIcon size={16} className="text-gray-600" />
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+            isHeroMode ? 'bg-white/20' : 'bg-gray-300'
+          }`}>
+            <UserIcon size={14} className={isHeroMode ? 'text-stone-50' : 'text-gray-700'} />
           </div>
         )}
-        <span className="hidden sm:inline text-sm font-medium text-gray-700 max-w-[120px] truncate">
-          {user.displayName?.split(' ')[0] || 'Usuario'}
+        <span className={`text-xs font-medium max-w-[120px] truncate hidden sm:inline ${
+          isHeroMode ? 'text-stone-50 drop-shadow-sm' : 'text-gray-800'
+        }`}>
+          {user.displayName || 'Usuario'}
         </span>
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-fade-in">
-          {/* User Info */}
-          <div className="px-4 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              {user.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt={user.displayName || 'User'}
-                  className="w-10 h-10 rounded-full"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                  <UserIcon size={20} className="text-gray-600" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {user.displayName || 'Usuario'}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {user.email}
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="absolute right-0 mt-2 w-56 bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-white/30 py-1 z-50 animate-fade-in">
 
-          {/* Premium Status Badge */}
+          {/* Premium Badge - Always visible */}
           {isPremium ? (
-            <div className="px-4 py-2 border-b border-gray-100">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
-                <Crown size={14} className="text-orange-500 fill-orange-200" />
-                <span className="text-xs font-semibold text-orange-700">Plan Chef Activo</span>
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-orange-500/10 rounded-lg border border-orange-500/30">
+                <Crown size={13} className="text-orange-600" />
+                <span className="text-xs font-semibold text-orange-800">Plan Chef Pro Activo</span>
               </div>
             </div>
           ) : (
-            <div className="px-4 py-2 border-b border-gray-100">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  onShowPremiumModal?.();
-                }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:shadow-md hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
-              >
-                <Crown size={14} />
-                <span>Pasarme a Premium</span>
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onShowPremiumModal?.();
+              }}
+              className="w-full px-3 py-2 text-left flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-xs rounded-lg mx-2 shadow-sm hover:shadow-md hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
+            >
+              <Crown size={13} />
+              <span>Pasarme a Chef Pro</span>
+            </button>
           )}
 
-          {/* Menu Items */}
-          <div className="py-1">
-            <button
-              onClick={handleSignOut}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-            >
-              <LogOut size={16} />
-              Cerrar sesión
-            </button>
-          </div>
+          {/* Divider */}
+          <div className="h-px bg-white/20 my-1" />
+
+          {/* Logout Button */}
+          <button
+            onClick={handleSignOut}
+            className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100/50 flex items-center gap-2 transition-colors rounded-lg mx-2 my-1"
+          >
+            <LogOut size={13} />
+            Cerrar sesión
+          </button>
         </div>
       )}
     </div>

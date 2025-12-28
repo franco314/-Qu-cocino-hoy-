@@ -24,8 +24,9 @@ setGlobalOptions({maxInstances: 10});
 // ==========================================
 
 /**
- * Creates a subscription link for a user to subscribe to Plan Chef.
+ * Creates a subscription link for a user to subscribe to Plan Chef Pro.
  * This uses Mercado Pago's PreApproval (recurring payments) API.
+ * Supports 'monthly' and 'yearly' plan types.
  */
 export const createSubscription = onCall(
   {secrets: [mercadoPagoAccessToken]},
@@ -44,6 +45,9 @@ export const createSubscription = onCall(
 
       const userId = request.auth.uid;
       const userEmail = request.auth.token.email || request.data.email;
+      const planType = request.data.planType || "monthly"; // 'monthly' or 'yearly'
+
+      logger.info(`📋 [createSubscription] Plan seleccionado: ${planType}`);
 
       logger.info(`👤 [createSubscription] Usuario: ${userId}, Email: ${userEmail}`);
 
@@ -100,13 +104,31 @@ export const createSubscription = onCall(
       const payerEmail = userEmail;
       logger.info(`💳 [createSubscription] Usando payer_email: ${payerEmail}`);
 
+      // Configure plan based on planType
+      const isYearly = planType === "yearly";
+      const planConfig = isYearly
+        ? {
+            reason: "Plan Chef Pro Anual",
+            frequency: 12,
+            frequency_type: "months" as const,
+            transaction_amount: 29400,
+          }
+        : {
+            reason: "Plan Chef Pro Mensual",
+            frequency: 1,
+            frequency_type: "months" as const,
+            transaction_amount: 3500,
+          };
+
+      logger.info(`💰 [createSubscription] Configuración del plan:`, planConfig);
+
       // Build subscription request body
       const subscriptionBody = {
-        reason: "Plan Chef - Que Cocino Hoy",
+        reason: planConfig.reason,
         auto_recurring: {
-          frequency: 1,
-          frequency_type: "months" as const,
-          transaction_amount: 3500,
+          frequency: planConfig.frequency,
+          frequency_type: planConfig.frequency_type,
+          transaction_amount: planConfig.transaction_amount,
           currency_id: "ARS",
         },
         back_url: backUrl,
@@ -159,8 +181,10 @@ export const createSubscription = onCall(
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         // Información del plan
-        plan: "chef",
-        amount: 3500,
+        plan: "chef-pro",
+        planType: planType, // 'monthly' or 'yearly'
+        planName: planConfig.reason,
+        amount: planConfig.transaction_amount,
         currency: "ARS",
         // ID del usuario de Firebase (redundante pero útil para queries)
         userId: userId,

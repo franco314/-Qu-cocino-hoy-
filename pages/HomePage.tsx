@@ -12,14 +12,15 @@ import {
   XCircle,
   Lock,
   Leaf,
-  Wheat
+  Wheat,
+  BookOpen
 } from 'lucide-react';
 import { IngredientInput } from '../components/IngredientInput';
 import { RecipeCard } from '../components/RecipeCard';
 import { RecipeSpotlight } from '../components/RecipeSpotlight';
 import { LoginButton } from '../components/LoginButton';
 import { UserProfile } from '../components/UserProfile';
-import { FavoriteLimitModal } from '../components/FavoriteLimitModal';
+import { FavoriteLimitModal, ModalContext } from '../components/FavoriteLimitModal';
 import { useAuth } from '../contexts/AuthContext';
 import { generateRecipes } from '../services/geminiService';
 import { favoritesService } from '../services/favoritesService';
@@ -57,6 +58,13 @@ export const HomePage = () => {
 
   // Favorite limit modal state
   const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
+  const [modalContext, setModalContext] = useState<ModalContext>('limit');
+
+  // Helper to open modal with specific context
+  const openPremiumModal = (context: ModalContext) => {
+    setModalContext(context);
+    setShowFavoriteLimitModal(true);
+  };
 
   // Constants
   const FREE_FAVORITES_LIMIT = 3;
@@ -213,8 +221,8 @@ export const HomePage = () => {
         if (!isCurrentlyFavorite) {
           // Check if user is FREE and already has 3 favorites
           if (!isPremium && favorites.length >= FREE_FAVORITES_LIMIT) {
-            // Show modal instead of adding
-            setShowFavoriteLimitModal(true);
+            // Show modal instead of adding - 'limit' context for restriction message
+            openPremiumModal('limit');
             return;
           }
         }
@@ -250,102 +258,178 @@ export const HomePage = () => {
     return favorites.length < FREE_FAVORITES_LIMIT;
   };
 
+  // Check if we should show the hero background
+  const showHeroBackground = appState === AppState.INPUT && activeTab === 'SEARCH';
+
+  // Universal transparent header mode (all views except non-transparent states)
+  // Transparent header: Hero, Favorites, Loading, Results
+  const useTransparentHeader = showHeroBackground || activeTab === 'FAVORITES' || appState === AppState.LOADING || appState === AppState.RESULTS;
+
+  // Show background image on: Favorites, Loading, Results, Error
+  const showBackgroundImage = activeTab === 'FAVORITES' || appState === AppState.LOADING || appState === AppState.RESULTS || appState === AppState.ERROR;
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-orange-100 selection:text-orange-900 flex flex-col">
+    <div className={`min-h-screen text-gray-900 font-sans selection:bg-orange-100 selection:text-orange-900 flex flex-col relative z-0 ${
+      showBackgroundImage ? 'bg-fixed bg-cover bg-center' : ''
+    }`} style={showBackgroundImage ? { backgroundImage: 'url(/bg-chef.jpg)' } : undefined}>
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Fixed Logo */}
-            <div className="bg-black text-white p-2 rounded-xl shadow-sm w-10 h-10 flex items-center justify-center">
-               <ChefHat size={24} />
-            </div>
-
-            {/* Title - Navigates Home */}
-            <h1
-              className="text-lg md:text-xl font-bold tracking-tight hidden xs:block cursor-pointer hover:text-gray-600 transition-colors"
-              onClick={() => {
-                setActiveTab('SEARCH');
-                if (appState === AppState.RESULTS) handleReset();
-              }}
-            >
-              ¿Qué cocino hoy?
-            </h1>
+      {/* Header - Universal Transparente */}
+      <header className={`z-50 transition-all duration-300 ${
+        useTransparentHeader
+          ? 'absolute top-0 left-0 right-0 bg-transparent'
+          : 'sticky top-0 bg-white/70 backdrop-blur-md shadow-sm'
+      }`}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-between">
+          {/* Left: Logo - adapts to background */}
+          <div className="flex items-center gap-2.5">
+            <ChefHat
+              size={28}
+              strokeWidth={1.5}
+              className={`${useTransparentHeader ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]' : 'text-gray-800 drop-shadow-sm'}`}
+            />
+            {/* Mostrar nombre solo cuando NO estamos en modo transparente */}
+            {!useTransparentHeader && (
+              <span className="text-lg font-light tracking-wide text-gray-800">
+                ¿Qué cocinamos hoy?
+              </span>
+            )}
           </div>
 
-          {/* Navigation Tabs and Auth */}
-          <div className="flex items-center gap-3">
-            <nav className="flex bg-gray-100 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('SEARCH')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                activeTab === 'SEARCH'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Search size={16} />
-              <span className="hidden sm:inline">Buscar</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('FAVORITES')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                activeTab === 'FAVORITES'
-                  ? 'bg-white text-red-500 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Heart size={16} className={activeTab === 'FAVORITES' ? "fill-red-500" : ""} />
-              <span className="hidden sm:inline">Guardadas</span>
-              {favorites.length > 0 && (
-                <span className="bg-red-100 text-red-600 text-xs px-1.5 py-0.5 rounded-full ml-1">
-                  {favorites.length}
-                </span>
-              )}
-            </button>
-          </nav>
+          {/* Center: Navigation Tabs (only show when in RESULTS state, not transparent) */}
+          {!useTransparentHeader && appState !== AppState.INPUT && (
+            <nav className="flex p-0.5 rounded-full bg-gray-100/80 backdrop-blur-sm">
+              <button
+                onClick={() => setActiveTab('SEARCH')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 flex items-center gap-1.5 ${
+                  activeTab === 'SEARCH'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                }`}
+              >
+                <Search size={13} />
+                <span className="hidden sm:inline">Buscar</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('FAVORITES')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 flex items-center gap-1.5 ${
+                  activeTab === 'FAVORITES'
+                    ? 'bg-white text-red-500 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                }`}
+              >
+                <Heart size={13} className={activeTab === 'FAVORITES' ? "fill-red-500" : ""} />
+                <span className="hidden sm:inline">Guardadas</span>
+              </button>
+            </nav>
+          )}
 
-          {/* Auth Section */}
-          {user ? <UserProfile onShowPremiumModal={() => setShowFavoriteLimitModal(true)} /> : <LoginButton />}
+          {/* Right: Actions - Glassmorphism */}
+          <div className="flex items-center gap-2">
+            {/* Mis Recetas Button - Visible when logged in, hidden on favorites view */}
+            {user && activeTab !== 'FAVORITES' && (
+              <button
+                onClick={() => setActiveTab('FAVORITES')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all duration-300 ${
+                  useTransparentHeader
+                    ? 'bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20'
+                    : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-700'
+                }`}
+                title="Mis Recetas Guardadas"
+              >
+                <BookOpen
+                  size={16}
+                  className={`${
+                    useTransparentHeader
+                      ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]'
+                      : 'text-gray-600'
+                  }`}
+                />
+                <span className={`text-xs font-medium hidden sm:inline ${
+                  useTransparentHeader
+                    ? 'text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]'
+                    : 'text-gray-700'
+                }`}>
+                  Mis Recetas
+                </span>
+                {/* Badge with count - only show when not on favorites page */}
+                {favorites.length > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+                    useTransparentHeader
+                      ? 'bg-white/30 text-white'
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {favorites.length}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* User Profile / Login */}
+            {user ? (
+              <UserProfile
+                onShowPremiumModal={() => openPremiumModal(useTransparentHeader ? 'home' : 'favorites')}
+                isHeroMode={useTransparentHeader}
+              />
+            ) : (
+              <LoginButton isHeroMode={useTransparentHeader} />
+            )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-24 w-full flex-grow">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-24 w-full flex-grow relative z-10">
 
         {/* FAVORITES VIEW */}
         {activeTab === 'FAVORITES' && (
-          <div className="animate-fade-in">
+          <div className="animate-fade-in pt-16">
+            {/* Gradient overlay for top readability */}
+            <div className="fixed top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/50 via-black/20 to-transparent pointer-events-none z-40" />
+
+            {/* Header section with improved legibility */}
             <div className="mb-8">
-              <div className="flex items-center justify-between flex-wrap gap-3">
+              {/* Back button - Glassmorphism style */}
+              <button
+                onClick={() => setActiveTab('SEARCH')}
+                className="mb-6 flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-300"
+              >
+                <ArrowRight className="w-4 h-4 rotate-180 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                <span className="text-sm font-medium text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                  Volver a buscar
+                </span>
+              </button>
+
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Mis Recetas Guardadas</h2>
-                  <p className="text-gray-500">Tus platos favoritos listos para volver a cocinar.</p>
+                  <h2 className="text-3xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] mb-1">
+                    Mis Recetas Guardadas
+                  </h2>
+                  <p className="text-white/90 font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
+                    Tus platos favoritos listos para volver a cocinar.
+                  </p>
                 </div>
                 {/* Favorites counter and Premium CTA - only show for Free users */}
                 {!isPremium && (
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className={`px-4 py-2 rounded-full border-2 flex items-center gap-2 ${
+                    <div className={`px-4 py-2 rounded-full backdrop-blur-sm flex items-center gap-2 ${
                       favorites.length >= FREE_FAVORITES_LIMIT
-                        ? 'bg-red-50 border-red-300 text-red-700'
-                        : 'bg-gray-50 border-gray-200 text-gray-600'
+                        ? 'bg-red-500/20 border border-red-400/50 text-white'
+                        : 'bg-white/10 border border-white/30 text-white'
                     }`}>
-                      <Heart size={16} className={favorites.length >= FREE_FAVORITES_LIMIT ? 'fill-red-500 text-red-500' : ''} />
-                      <span className="font-semibold text-sm">
-                        {favorites.length}/{FREE_FAVORITES_LIMIT} recetas guardadas
+                      <Heart size={16} className={favorites.length >= FREE_FAVORITES_LIMIT ? 'fill-red-400 text-red-400' : 'text-white'} />
+                      <span className="font-semibold text-sm drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
+                        {favorites.length}/{FREE_FAVORITES_LIMIT} recetas
                       </span>
                       {favorites.length >= FREE_FAVORITES_LIMIT && (
-                        <Lock size={14} className="text-red-600" />
+                        <Lock size={14} className="text-red-300" />
                       )}
                     </div>
-                    {/* Premium CTA Button - Opens modal with benefits first */}
+                    {/* Premium CTA Button */}
                     <button
-                      onClick={() => setShowFavoriteLimitModal(true)}
-                      className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm shadow-md hover:shadow-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2"
+                      onClick={() => openPremiumModal('favorites')}
+                      className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center gap-2"
                     >
                       <span>✨</span>
-                      <span>Plan Chef</span>
+                      <span>Plan Chef Pro</span>
                     </button>
                   </div>
                 )}
@@ -353,12 +437,12 @@ export const HomePage = () => {
             </div>
 
             {favorites.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-                <div className="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <div className="text-center py-20 bg-white/80 backdrop-blur-md rounded-3xl border border-white/30 shadow-lg">
+                <div className="mx-auto w-16 h-16 bg-white/60 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
                   <Heart className="text-gray-300" size={32} />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Aún no guardaste recetas</h3>
-                <p className="text-gray-500 mb-6 max-w-xs mx-auto">Cuando encuentres una receta que te guste, presioná el corazón para guardarla aquí.</p>
+                <p className="text-gray-700 mb-6 max-w-xs mx-auto">Cuando encuentres una receta que te guste, presioná el corazón para guardarla aquí.</p>
                 <button
                   onClick={() => setActiveTab('SEARCH')}
                   className="text-orange-600 font-medium hover:text-orange-700 hover:underline"
@@ -389,220 +473,235 @@ export const HomePage = () => {
         {/* SEARCH VIEW */}
         {activeTab === 'SEARCH' && (
           <>
-            {/* Hero Section (Only on Input State) */}
+            {/* Hero Section with Floating UI (Only on Input State) */}
             {appState === AppState.INPUT && (
-              <div className="text-center mb-12 max-w-2xl mx-auto animate-fade-in-down">
-                <h2 className="text-4xl md:text-5xl font-extrabold mb-4 text-gray-900 tracking-tight">
-                  Decime qué tenés,<br/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-500">
-                    te digo qué comer.
-                  </span>
-                </h2>
-                <p className="text-lg text-gray-500 leading-relaxed">
-                  Ingresá los ingredientes disponibles en tu heladera o alacena y dejá que la IA diseñe el menú ideal.
-                </p>
-              </div>
-            )}
+              <div className="flex flex-col items-center justify-center min-h-[80vh] pt-20">
+                {/* Hero Title - Floating over background */}
+                <div className="text-center mb-8 animate-fade-in-down">
+                  <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-3 tracking-tight drop-shadow-lg">
+                    <span className="text-orange-500">
+                      ¿Qué cocinamos hoy?
+                    </span>
+                  </h2>
+                  <p className="text-lg md:text-xl text-gray-800 font-semibold drop-shadow-md">
+                    Decime qué tenés, te digo qué comer.
+                  </p>
+                </div>
 
-            {/* Input Form (New Omnibox) */}
-            {appState === AppState.INPUT && (
-              <div className="space-y-8 animate-fade-in-up">
-                <IngredientInput
-                  ingredients={ingredients}
-                  onAdd={handleAddIngredient}
-                  onRemove={handleRemoveIngredient}
-                  history={history}
-                  onSelectHistory={handleSelectHistory}
-                />
+                {/* Floating UI Container - Glassmorphism sutil */}
+                <div className="w-full max-w-2xl bg-white/80 backdrop-blur-md rounded-3xl p-6 md:p-8 animate-fade-in-up shadow-lg border border-white/30">
+                  <IngredientInput
+                    ingredients={ingredients}
+                    onAdd={handleAddIngredient}
+                    onRemove={handleRemoveIngredient}
+                    history={history}
+                    onSelectHistory={handleSelectHistory}
+                  />
 
-                {error && (
-                  <div className="p-4 rounded-xl bg-red-50 text-red-600 text-center text-sm font-medium animate-shake max-w-xl mx-auto">
-                    {error}
+                  {error && (
+                    <div className="mt-4 p-4 rounded-xl bg-red-500/90 text-white text-center text-sm font-medium animate-shake backdrop-blur-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* Toggle Switch - Glassmorphism style */}
+                  <div className="mt-6 flex justify-center">
+                    <div className="bg-white/80 backdrop-blur-sm p-1 rounded-full flex w-full max-w-[340px] shadow-lg">
+                      <button
+                        onClick={() => setUseStrictMatching(false)}
+                        className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                          !useStrictMatching ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        <Layers size={16} />
+                        <span>Usar algunos</span>
+                      </button>
+                      <button
+                        onClick={() => setUseStrictMatching(true)}
+                        className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                          useStrictMatching ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>Usar todo</span>
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            {/* Mode Selection & Generate Button (Input State) */}
-            {appState === AppState.INPUT && (
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 z-40 flex flex-col items-center shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-
-                {/* Toggle Switch */}
-                <div className="bg-gray-100 p-1 rounded-full flex mb-4 w-full max-w-[340px] relative">
-                   <button
-                     onClick={() => setUseStrictMatching(false)}
-                     className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 z-10 ${
-                       !useStrictMatching ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                     }`}
-                   >
-                     <Layers size={16} />
-                     <span>Usar algunos</span>
-                   </button>
-                   <button
-                     onClick={() => setUseStrictMatching(true)}
-                     className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 z-10 ${
-                       useStrictMatching ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                     }`}
-                   >
-                     <CheckCircle2 size={16} />
-                     <span>Usar todo</span>
-                   </button>
-                </div>
-
-                {/* Diet Filters */}
-                <div className="flex gap-2 mb-4 w-full max-w-md justify-center flex-wrap">
-                  {/* Vegetariano - Available for all */}
-                  <button
-                    onClick={() => setDietFilters(prev => ({ ...prev, vegetarian: !prev.vegetarian }))}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
-                      dietFilters.vegetarian
-                        ? 'bg-green-500 text-white border-green-500 shadow-md'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-600'
-                    }`}
-                  >
-                    <Leaf size={14} />
-                    <span>Vegetariano</span>
-                  </button>
-
-                  {/* Vegano - Premium only (opens modal if not premium) */}
-                  <button
-                    onClick={() => {
-                      if (!isPremium) {
-                        setShowFavoriteLimitModal(true);
-                      } else {
-                        setDietFilters(prev => ({ ...prev, vegan: !prev.vegan }));
-                      }
-                    }}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
-                      !isPremium
-                        ? 'bg-gray-100 text-gray-400 border-gray-200 hover:border-orange-300 hover:bg-orange-50 cursor-pointer'
-                        : dietFilters.vegan
-                          ? 'bg-green-600 text-white border-green-600 shadow-md'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-green-500 hover:text-green-600'
-                    }`}
-                    title={!isPremium ? 'Disponible en Plan Chef - Clic para ver beneficios' : 'Filtrar recetas veganas'}
-                  >
-                    {!isPremium && <Lock size={12} className="text-gray-400" />}
-                    <Leaf size={14} />
-                    <span>Vegano</span>
-                  </button>
-
-                  {/* Sin TACC - Premium only (opens modal if not premium) */}
-                  <button
-                    onClick={() => {
-                      if (!isPremium) {
-                        setShowFavoriteLimitModal(true);
-                      } else {
-                        setDietFilters(prev => ({ ...prev, glutenFree: !prev.glutenFree }));
-                      }
-                    }}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 border ${
-                      !isPremium
-                        ? 'bg-gray-100 text-gray-400 border-gray-200 hover:border-orange-300 hover:bg-orange-50 cursor-pointer'
-                        : dietFilters.glutenFree
-                          ? 'bg-amber-500 text-white border-amber-500 shadow-md'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-amber-500 hover:text-amber-600'
-                    }`}
-                    title={!isPremium ? 'Disponible en Plan Chef - Clic para ver beneficios' : 'Filtrar recetas sin gluten'}
-                  >
-                    {!isPremium && <Lock size={12} className="text-gray-400" />}
-                    <Wheat size={14} />
-                    <span>Sin TACC</span>
-                  </button>
-                </div>
-
-                <button
-                  onClick={handleGenerate}
-                  className="group w-full max-w-md bg-black text-white px-8 py-3.5 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-3 overflow-hidden"
-                >
-                  <span className="relative z-10 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                    Generar Recetas
-                  </span>
-                  <div className="absolute inset-0 bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </button>
-
-                <div className="mt-2 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                   {useStrictMatching ? "Modo Desafío: Usaremos todo lo que tenés" : "Modo Flexible: Priorizamos sabor sobre cantidad"}
-                </div>
-              </div>
-            )}
-
-            {/* Space filler for fixed footer */}
-            {appState === AppState.INPUT && <div className="h-40" />}
-
-            {/* Loading State */}
-            {appState === AppState.LOADING && (
-              <div className="flex flex-col items-center justify-center min-h-[50vh] animate-pulse">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-orange-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                  <Utensils className="w-16 h-16 text-orange-500 animate-bounce relative z-10" />
-                </div>
-                <h3 className="mt-8 text-xl font-semibold text-gray-800">
-                   {allGeneratedTitles.length > 0 ? "Buscando otras opciones..." : "Analizando ingredientes..."}
-                </h3>
-                <p className="text-gray-500 mt-2">
-                  {useStrictMatching ? "Buscando cómo combinar todo..." : "El chef está pensando la mejor opción."}
-                </p>
-                <button
-                  onClick={() => setAppState(AppState.INPUT)}
-                  className="mt-8 px-4 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:text-gray-800 transition-colors flex items-center gap-2"
-                >
-                  <XCircle size={14} /> Cancelar y volver
-                </button>
-              </div>
-            )}
-
-            {/* Error State */}
-            {appState === AppState.ERROR && (
-              <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-                <div className="bg-red-100 p-4 rounded-full mb-4">
-                  <Utensils className="w-8 h-8 text-red-500" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Algo salió mal</h3>
-                <p className="text-gray-600 mb-8 max-w-md">{error}</p>
-                <div className="flex gap-4">
+                  {/* Diet Filters - Floating chips */}
+                  <div className="mt-5 flex gap-2 justify-center flex-wrap">
+                    {/* Vegetariano - Available for all */}
                     <button
-                    onClick={() => {
-                        // Retry the last action based on if we have titles or not
+                      onClick={() => setDietFilters(prev => ({ ...prev, vegetarian: !prev.vegetarian }))}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                        dietFilters.vegetarian
+                          ? 'bg-green-500 text-white'
+                          : 'bg-white/90 text-gray-700 hover:bg-white'
+                      }`}
+                    >
+                      <Leaf size={14} />
+                      <span>Vegetariano</span>
+                    </button>
+
+                    {/* Vegano - Premium only */}
+                    <button
+                      onClick={() => {
+                        if (!isPremium) {
+                          openPremiumModal('home');
+                        } else {
+                          setDietFilters(prev => ({ ...prev, vegan: !prev.vegan }));
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                        !isPremium
+                          ? 'bg-white/60 text-gray-400 hover:bg-white/80'
+                          : dietFilters.vegan
+                            ? 'bg-green-600 text-white'
+                            : 'bg-white/90 text-gray-700 hover:bg-white'
+                      }`}
+                      title={!isPremium ? 'Disponible en Plan Chef Pro' : 'Filtrar recetas veganas'}
+                    >
+                      {!isPremium && <Lock size={12} />}
+                      <Leaf size={14} />
+                      <span>Vegano</span>
+                    </button>
+
+                    {/* Sin TACC - Premium only */}
+                    <button
+                      onClick={() => {
+                        if (!isPremium) {
+                          openPremiumModal('home');
+                        } else {
+                          setDietFilters(prev => ({ ...prev, glutenFree: !prev.glutenFree }));
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                        !isPremium
+                          ? 'bg-white/60 text-gray-400 hover:bg-white/80'
+                          : dietFilters.glutenFree
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-white/90 text-gray-700 hover:bg-white'
+                      }`}
+                      title={!isPremium ? 'Disponible en Plan Chef Pro' : 'Filtrar recetas sin gluten'}
+                    >
+                      {!isPremium && <Lock size={12} />}
+                      <Wheat size={14} />
+                      <span>Sin TACC</span>
+                    </button>
+                  </div>
+
+                  {/* Generate Button - Prominent CTA */}
+                  <button
+                    onClick={handleGenerate}
+                    className="mt-8 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 hover:-translate-y-1 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-3"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    Crear con AI
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State - Glassmorphism over background */}
+            {appState === AppState.LOADING && (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] pt-20">
+                {/* Gradient overlay for readability */}
+                <div className="fixed top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-40" />
+
+                {/* Glassmorphism container */}
+                <div className="bg-white/20 backdrop-blur-md rounded-3xl p-10 border border-white/30 shadow-2xl flex flex-col items-center">
+                  {/* Animated spinner with Glassmorphism */}
+                  <div className="relative mb-6">
+                    <div className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-sm border border-white/40 flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border-4 border-white/20 border-t-orange-500 animate-spin"></div>
+                      <Utensils className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                    </div>
+                  </div>
+
+                  {/* Loading text with drop-shadow for legibility */}
+                  <h3 className="text-2xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] mb-2 text-center">
+                    {allGeneratedTitles.length > 0 ? "Buscando otras opciones..." : "Cocinando tu receta..."}
+                  </h3>
+                  <p className="text-white/90 font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] text-center mb-6">
+                    {useStrictMatching ? "Combinando todos tus ingredientes..." : "El chef está pensando la mejor opción."}
+                  </p>
+
+                  {/* Cancel button - Glassmorphism */}
+                  <button
+                    onClick={() => setAppState(AppState.INPUT)}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 rounded-full transition-all duration-300 flex items-center gap-2"
+                  >
+                    <XCircle size={14} /> Cancelar y volver
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Error State - Glassmorphism over background */}
+            {appState === AppState.ERROR && (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] pt-20">
+                {/* Gradient overlay for readability */}
+                <div className="fixed top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/40 via-black/20 to-transparent pointer-events-none z-40" />
+
+                {/* Glassmorphism container */}
+                <div className="bg-white/20 backdrop-blur-md rounded-3xl p-10 border border-white/30 shadow-2xl flex flex-col items-center max-w-md">
+                  <div className="w-20 h-20 rounded-full bg-red-500/30 backdrop-blur-sm border border-red-400/50 flex items-center justify-center mb-6">
+                    <Utensils className="w-10 h-10 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] mb-2 text-center">
+                    Algo salió mal
+                  </h3>
+                  <p className="text-white/90 font-medium drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)] text-center mb-6">
+                    {error}
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
                         if (allGeneratedTitles.length > 0) handleRegenerate();
                         else handleGenerate();
-                    }}
-                    className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                      }}
+                      className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
                     >
-                    Reintentar
+                      Reintentar
                     </button>
                     <button
-                    onClick={handleReset}
-                    className="bg-white text-gray-700 border border-gray-300 px-6 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      onClick={handleReset}
+                      className="px-5 py-2.5 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 rounded-full font-medium transition-all duration-300"
                     >
-                    Volver al inicio
+                      Volver al inicio
                     </button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Results State - Single Spotlight Recipe */}
             {appState === AppState.RESULTS && recipes.length > 0 && (
-              <div className="animate-fade-in pb-12">
-                {/* Header Minimalista */}
+              <div className="animate-fade-in pb-12 pt-16">
+                {/* Gradient overlay for top readability */}
+                <div className="fixed top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/40 via-black/15 to-transparent pointer-events-none z-40" />
+
+                {/* Navigation Header - Glassmorphism */}
                 <div className="flex justify-between items-center mb-8 max-w-6xl mx-auto px-4">
                   <button
                     onClick={handleReset}
-                    className="text-gray-500 hover:text-black font-medium transition-colors flex items-center gap-2"
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-300"
                   >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
-                    Volver a ingredientes
+                    <ArrowRight className="w-4 h-4 rotate-180 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                    <span className="text-sm font-medium text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                      Volver a ingredientes
+                    </span>
                   </button>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleReset}
-                      className="text-sm font-medium text-gray-500 hover:text-black transition-colors bg-white px-4 py-2 rounded-full border border-gray-200 hover:border-gray-300 shadow-sm"
-                    >
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 transition-all duration-300"
+                  >
+                    <Search className="w-4 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                    <span className="text-sm font-medium text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
                       Nueva búsqueda
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                 </div>
 
                 {/* El Nuevo Componente Spotlight */}
@@ -613,23 +712,22 @@ export const HomePage = () => {
                   onDeleteFavorite={handleDeleteFavorite}
                   isPremium={isPremium}
                   canAddToFavorites={canAddMoreFavorites(recipes[0].id)}
-                  onLimitReached={() => setShowFavoriteLimitModal(true)}
+                  onLimitReached={() => openPremiumModal('limit')}
                 />
 
-                {/* Botonera de Regeneración */}
+                {/* Botonera de Regeneración - Glassmorphism */}
                 <div className="mt-10 flex flex-col items-center justify-center">
-                  <p className="text-gray-400 text-sm mb-4 font-medium uppercase tracking-wider">
+                  <p className="text-white/80 text-sm mb-4 font-medium uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
                     ¿No es lo que buscabas?
                   </p>
                   <button
                     onClick={handleRegenerate}
-                    className="group relative inline-flex items-center gap-3 bg-white border-2 border-orange-100 text-gray-800 px-8 py-4 rounded-full font-bold shadow-sm hover:shadow-xl hover:border-orange-200 hover:scale-105 transition-all duration-300 overflow-hidden"
+                    className="group relative inline-flex items-center gap-3 bg-white/20 backdrop-blur-md border border-white/30 text-white px-8 py-4 rounded-full font-bold shadow-lg hover:shadow-xl hover:bg-white/30 hover:scale-105 transition-all duration-300 overflow-hidden"
                   >
-                    <span className="relative z-10 flex items-center gap-2">
-                      <Shuffle className="w-5 h-5 text-orange-500 group-hover:rotate-180 transition-transform duration-500" />
+                    <span className="relative z-10 flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                      <Shuffle className="w-5 h-5 text-orange-300 group-hover:rotate-180 transition-transform duration-500" />
                       Probar otra opción
                     </span>
-                    <div className="absolute inset-0 bg-orange-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </button>
                 </div>
               </div>
@@ -639,20 +737,27 @@ export const HomePage = () => {
 
       </main>
 
-      {/* Simple Footer - Hidden when input is active to avoid clash with fixed button */}
+      {/* Minimal Footer - Transparent, adapts to all screens */}
       {appState !== AppState.INPUT && (
-        <footer className="bg-white border-t border-gray-100 py-8 mt-auto">
-          <div className="max-w-5xl mx-auto px-4 text-center text-sm text-gray-400">
-            <p>&copy; {new Date().getFullYear()} ¿Qué cocino hoy? · Powered by Gemini AI</p>
+        <footer className="bg-transparent py-6 mt-auto">
+          <div className="max-w-5xl mx-auto px-4 text-center">
+            <p className={`text-xs font-medium ${
+              showBackgroundImage
+                ? 'text-white/70 drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
+                : 'text-stone-400'
+            }`}>
+              © 2025 ¿Qué cocino hoy? · @ffran.co
+            </p>
           </div>
         </footer>
       )}
 
-      {/* Favorite Limit Modal */}
+      {/* Favorite Limit Modal - Context-aware messaging */}
       <FavoriteLimitModal
         isOpen={showFavoriteLimitModal}
         onClose={() => setShowFavoriteLimitModal(false)}
         onUpgrade={startSubscription}
+        context={modalContext}
       />
 
       {/* Global Subscription Loading Overlay */}

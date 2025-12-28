@@ -51,7 +51,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
 
   return (
     <article
-      className="bg-white rounded-3xl overflow-hidden shadow-2xl border border-gray-100 transition-all duration-500 hover:shadow-3xl w-full max-w-6xl mx-auto"
+      className="bg-white/85 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/40 transition-all duration-500 hover:shadow-3xl w-full max-w-6xl mx-auto"
       role="article"
       aria-label={`Receta destacada: ${recipe.title}`}
     >
@@ -146,7 +146,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
 
             {/* Macros Section */}
             {recipe.macros && (
-              <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-2xl p-4 mb-4 border border-orange-100">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 mb-4 border border-white/40 shadow-sm">
                 <div className="flex items-center justify-between gap-4">
                   {/* Proteínas */}
                   <div className="flex-1 text-center">
@@ -219,8 +219,8 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
               </div>
             )}
 
-            {/* Title */}
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
+            {/* Title - High contrast for readability */}
+            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4 leading-tight tracking-tight">
               {recipe.title}
             </h1>
 
@@ -233,7 +233,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
           {/* Missing Ingredients Alert */}
           {missingIngredients.length > 0 && (
             <div
-              className="bg-orange-50 px-5 py-4 rounded-2xl border-2 border-orange-200 flex items-start gap-4 mb-6 shadow-sm"
+              className="bg-orange-500/10 backdrop-blur-sm px-5 py-4 rounded-2xl border-2 border-orange-500/30 flex items-start gap-4 mb-6 shadow-sm"
               role="note"
               aria-label="Ingredientes sugeridos"
             >
@@ -251,8 +251,8 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
 
           {/* Ingredients Section */}
           <div className="mb-6">
-            <h2 className="flex items-center text-lg font-bold text-gray-900 mb-4">
-              <List size={20} className="mr-2 text-gray-600" aria-hidden="true" />
+            <h2 className="flex items-center text-xl font-extrabold text-gray-900 mb-4 tracking-tight">
+              <List size={20} className="mr-2 text-orange-600" aria-hidden="true" />
               Ingredientes
             </h2>
             <ul className="text-base text-gray-700 space-y-2.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
@@ -267,8 +267,8 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
 
           {/* Instructions Section */}
           <div className="mb-8 flex-grow">
-            <h2 className="flex items-center text-lg font-bold text-gray-900 mb-4">
-              <ChefHat size={20} className="mr-2 text-gray-600" aria-hidden="true" />
+            <h2 className="flex items-center text-xl font-extrabold text-gray-900 mb-4 tracking-tight">
+              <ChefHat size={20} className="mr-2 text-orange-600" aria-hidden="true" />
               Preparación
             </h2>
             <ol className="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">

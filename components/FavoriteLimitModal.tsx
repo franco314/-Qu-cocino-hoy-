@@ -1,22 +1,43 @@
 import { useState, useEffect } from 'react';
-import { X, Lock, Star, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Lock, Star, Loader2, AlertCircle, RefreshCw, Check, Sparkles } from 'lucide-react';
+
+type PlanType = 'monthly' | 'yearly';
+
+// Context types for different modal behaviors
+export type ModalContext = 'home' | 'favorites' | 'limit';
 
 interface FavoriteLimitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpgrade: () => Promise<void>;
+  onUpgrade: (planType: PlanType) => Promise<void>;
+  context?: ModalContext; // 'home' = aspirational, 'favorites'/'limit' = restriction
 }
 
-export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimitModalProps) => {
+export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade, context = 'limit' }: FavoriteLimitModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>('yearly');
 
-  // Reset error when modal opens
+  // Reset error and selection when modal opens
   useEffect(() => {
     if (isOpen) {
       setError(null);
+      setSelectedPlan('yearly');
     }
   }, [isOpen]);
+
+  // Dynamic content based on context
+  const isAspirational = context === 'home';
+
+  const modalContent = {
+    title: isAspirational
+      ? 'Subí de nivel con el Plan Chef Pro'
+      : '¡Llegaste al límite del plan gratuito!',
+    description: isAspirational
+      ? 'Accedé a fotos ultra-realistas de tus platos y recetas ilimitadas.'
+      : 'Guardá recetas ilimitadas y desbloqueá fotos generadas con IA con el',
+    showPlanBadge: !isAspirational,
+  };
 
   if (!isOpen) return null;
 
@@ -24,7 +45,7 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
     setIsLoading(true);
     setError(null);
     try {
-      await onUpgrade();
+      await onUpgrade(selectedPlan);
       // No cerramos el modal aquí porque onUpgrade abre Mercado Pago en nueva pestaña
       // El usuario puede cerrar manualmente si quiere
     } catch (err: unknown) {
@@ -45,13 +66,29 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
     handleUpgrade();
   };
 
+  const plans = {
+    monthly: {
+      price: '$3.500',
+      period: '/mes',
+      label: 'Mensual',
+      buttonText: 'Suscribirme Mensualmente',
+    },
+    yearly: {
+      price: '$29.400',
+      period: '/año',
+      label: 'Anual',
+      buttonText: 'Suscribirme Anualmente',
+      savings: 'AHORRÁ 30%',
+    },
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 animate-fade-in"
+        className="relative w-full max-w-lg bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl p-6 animate-fade-in border border-white/30"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
@@ -63,11 +100,19 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
           <X className="w-5 h-5 text-gray-500" />
         </button>
 
-        {/* Icon */}
+        {/* Icon - Different based on context */}
         <div className="flex justify-center mb-4">
           <div className="relative">
-            <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center">
-              <Lock className="w-10 h-10 text-orange-600" />
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center ${
+              isAspirational
+                ? 'bg-gradient-to-br from-orange-400 to-orange-600'
+                : 'bg-gradient-to-br from-orange-100 to-orange-200'
+            }`}>
+              {isAspirational ? (
+                <Sparkles className="w-10 h-10 text-white" />
+              ) : (
+                <Lock className="w-10 h-10 text-orange-600" />
+              )}
             </div>
             <div className="absolute -top-1 -right-1 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white">
               <Star className="w-5 h-5 text-white fill-white" />
@@ -75,18 +120,85 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
           </div>
         </div>
 
-        {/* Title */}
+        {/* Title - Dynamic based on context */}
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">
-          ¡Llegaste al límite del plan gratuito!
+          {modalContent.title}
         </h2>
 
-        {/* Message */}
+        {/* Message - Dynamic based on context */}
         <p className="text-center text-gray-600 mb-6">
-          Guardá recetas ilimitadas y desbloqueá fotos generadas con IA con el <span className="font-bold text-orange-600">Plan Chef</span>
+          {modalContent.description}
+          {modalContent.showPlanBadge && (
+            <span className="font-bold text-orange-600"> Plan Chef Pro</span>
+          )}
         </p>
 
+        {/* Plan Selection Cards */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {/* Monthly Plan Card */}
+          <button
+            onClick={() => setSelectedPlan('monthly')}
+            disabled={isLoading}
+            className={`relative p-4 rounded-2xl border-2 transition-all duration-200 text-left ${
+              selectedPlan === 'monthly'
+                ? 'border-orange-500 bg-orange-50/80 shadow-md'
+                : 'border-gray-200 bg-white/80 hover:border-gray-300'
+            } ${isLoading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            {/* Selection indicator */}
+            <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+              selectedPlan === 'monthly'
+                ? 'border-orange-500 bg-orange-500'
+                : 'border-gray-300 bg-white'
+            }`}>
+              {selectedPlan === 'monthly' && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+
+            <p className="text-sm font-medium text-gray-500 mb-1">{plans.monthly.label}</p>
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold text-gray-800">{plans.monthly.price}</span>
+              <span className="text-sm text-gray-500 ml-1">{plans.monthly.period}</span>
+            </div>
+          </button>
+
+          {/* Yearly Plan Card (Recommended) */}
+          <button
+            onClick={() => setSelectedPlan('yearly')}
+            disabled={isLoading}
+            className={`relative p-4 rounded-2xl border-2 transition-all duration-200 text-left ${
+              selectedPlan === 'yearly'
+                ? 'border-orange-500 bg-orange-50/80 shadow-md'
+                : 'border-gray-200 bg-white/80 hover:border-gray-300'
+            } ${isLoading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            {/* Savings Badge */}
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-sm">
+              <span className="text-[10px] font-bold text-white tracking-wide">{plans.yearly.savings}</span>
+            </div>
+
+            {/* Selection indicator */}
+            <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+              selectedPlan === 'yearly'
+                ? 'border-orange-500 bg-orange-500'
+                : 'border-gray-300 bg-white'
+            }`}>
+              {selectedPlan === 'yearly' && (
+                <Check className="w-3 h-3 text-white" />
+              )}
+            </div>
+
+            <p className="text-sm font-medium text-gray-500 mb-1 mt-1">{plans.yearly.label}</p>
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold text-gray-800">{plans.yearly.price}</span>
+              <span className="text-sm text-gray-500 ml-1">{plans.yearly.period}</span>
+            </div>
+          </button>
+        </div>
+
         {/* Benefits */}
-        <div className="bg-orange-50 rounded-2xl p-4 mb-6 space-y-2">
+        <div className="bg-orange-500/10 backdrop-blur-sm rounded-2xl p-4 mb-5 space-y-2 border border-orange-500/20">
           <div className="flex items-start gap-3">
             <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
               <span className="text-white text-xs font-bold">✓</span>
@@ -109,7 +221,7 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
 
         {/* Error message with retry */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <div className="mb-4 p-4 bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -126,12 +238,6 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
           </div>
         )}
 
-        {/* Price */}
-        <div className="text-center mb-4">
-          <span className="text-3xl font-bold text-gray-800">$3.500</span>
-          <span className="text-gray-500 text-sm">/mes</span>
-        </div>
-
         {/* Actions */}
         <div className="flex flex-col gap-3">
           <button
@@ -145,7 +251,7 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade }: FavoriteLimit
                 Procesando...
               </>
             ) : (
-              'Suscribirme al Plan Chef'
+              plans[selectedPlan].buttonText
             )}
           </button>
           <button
