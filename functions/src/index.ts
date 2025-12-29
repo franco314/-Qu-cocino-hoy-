@@ -545,18 +545,14 @@ export const generateRecipes = onCall(
       const ingredientsList = ingredients.join(", ");
 
       const strategyInstruction = useStrictMatching ?
-      "MODO DESAFÍO ACTIVADO: El usuario requiere utilizar ABSOLUTAMENTE TODOS los ingredientes listados en cada receta. Es un ejercicio de creatividad culinaria. Solo podés omitir ingredientes si son condimentos obvios que no combinan. Buscá la forma de integrar todo." :
-      "MODO FLEXIBLE: Utilizá los ingredientes listados como inspiración principal. Tu prioridad es que el plato sea delicioso y coherente. Si algún ingrediente no combina bien con el resto, omitilo sin problemas. Priorizá el sabor sobre la cantidad de ingredientes usados.";
+      "MODO DESAFÍO: Buscá una forma de usar los ingredientes en un plato casero, rico y fácil de entender." :
+      "MODO FLEXIBLE: Priorizá la practicidad. Recetas de pocos pasos y mucho sabor.";
 
       const exclusions = excludeRecipes && excludeRecipes.length > 0 ?
       `IMPORTANTE: El usuario ya vio las siguientes recetas, así que POR FAVOR GENERÁ OPCIONES COMPLETAMENTE DISTINTAS a estas: ${excludeRecipes.join(", ")}. Buscá variedad en métodos de cocción o perfiles de sabor.` :
       "";
 
       const prompt = `
-<CONTEXTO>
-Sos un chef profesional de alta cocina con formación en nutrición clínica. Tenés acceso a tu conocimiento profundo de técnicas culinarias internacionales y bases de datos nutricionales como USDA FoodData Central.
-</CONTEXTO>
-
 <INGREDIENTES_DISPONIBLES>
 ${ingredientsList}
 </INGREDIENTES_DISPONIBLES>
@@ -568,83 +564,35 @@ ${strategyInstruction}
 ${exclusions ? `<EXCLUSIONES>\n${exclusions}\n</EXCLUSIONES>` : ""}
 ${dietInstruction ? `<RESTRICCIONES_DIETÉTICAS>\n${dietInstruction}\n</RESTRICCIONES_DIETÉTICAS>` : ""}
 
-<INSTRUCCIONES_DE_RAZONAMIENTO>
-Antes de generar la receta, realizá un análisis interno (no lo incluyas en la respuesta):
-
-1. **Análisis de Ingredientes**: Evaluá qué perfiles de sabor predominan (ácido, dulce, umami, etc.) y qué técnicas de cocción serían óptimas.
-
-2. **Creatividad Culinaria**: Pensá en combinaciones no obvias. Si el usuario tiene pollo y limón, no sugieras "pollo al limón" genérico - buscá una preparación más interesante como un pollo glaseado con cítricos y hierbas, o una técnica específica como sous vide o confitado.
-
-3. **Cálculo Nutricional Preciso**: Para cada ingrediente que uses, calculá los macros basándote en porciones realistas:
-   - Consultá mentalmente valores de USDA (ej: 100g pechuga de pollo = 31g proteína, 3.6g grasa, 0g carbs)
-   - Sumá los totales y dividí por el número de porciones
-   - Los valores deben ser coherentes: una receta con 200g de pollo no puede tener solo 10g de proteína
-
-4. **Equilibrio del Plato**: Asegurá que la receta tenga sentido gastronómico - textura, color, temperatura y balance de sabores.
-</INSTRUCCIONES_DE_RAZONAMIENTO>
-
-<FORMATO_DE_SALIDA>
-Generá UNA SOLA receta excepcional. Debe ser:
-- Realizable en una cocina hogareña argentina
-- Con instrucciones precisas y tiempos específicos
-- Con cantidades exactas en cada ingrediente (ej: "200g de pechuga de pollo", no solo "pollo")
-- Con macros calculados rigurosamente basados en las cantidades especificadas
-
-Si faltan ingredientes básicos de alacena (sal, aceite, especias comunes), asumí que están disponibles.
-Si falta algún ingrediente específico y clave, listalo en 'missingIngredients'.
-
-IMPORTANTE sobre títulos: Usá capitalización correcta del español (Sentence case).
-✓ Correcto: "Milanesas a la napolitana con puré"
-✗ Incorrecto: "Milanesas A La Napolitana Con Puré"
-</FORMATO_DE_SALIDA>
-    `;
+<TAREA>
+Generá una receta rica y simple.
+1. Título DE CASA, como lo diría tu abuela (Ej: "Bifes con papas", "Pollo al horno", "Fideos con tuco"). NADA de palabras fancy como rösti, emulsión, reducción, crocante, corazón de.
+2. Instrucciones como si le explicaras a un amigo por WhatsApp.
+3. Cantidades exactas en gramos para el cálculo de macros.
+</TAREA>
+`;
 
       // Generate Text Recipes using Gemini 3 Flash with Pro-level reasoning
       const response = await ai.models.generateContent({
         model: modelId,
         contents: prompt,
         config: {
-          systemInstruction: `Sos un chef ejecutivo con 20 años de experiencia en restaurantes de alta cocina internacionales y formación certificada en nutrición deportiva. Tu especialidad es crear platos que sorprendan por su creatividad sin sacrificar la practicidad, usando técnicas avanzadas de cocción moderna.
+          systemInstruction: `Sos un cocinero de casa argentino. Cocinás como tu vieja o tu abuela, nada fancy.
 
-INSTRUCCIONES DE RAZONAMIENTO (Gemini 3 Flash):
-Tu modelo tiene acceso a capacidades de razonamiento de nivel Pro. Usalo para:
-1. Analizar profundamente perfiles de sabor y técnicas óptimas ANTES de generar
-2. Crear combinaciones NO-OBVIAS que muestren maestría culinaria
-3. Verificar coherencia matemática de macros basándote en valores USDA reales
-4. Asegurar que cada paso instruccional sea preciso y ejecutable
+REGLA #1 - TÍTULOS (MUY IMPORTANTE):
+- SOLO usá nombres que dirías en tu casa sin palabras rimbombantes. El titulo debe reflejar lo que expresa la receta.
+- PALABRAS 100% PROHIBIDAS en títulos: rösti, emulsión, reducción, fondant, confitado, carpaccio, tataki, velouté, coulant, crème, brunoise, chiffonade, glasé, flambeado, escabeche gourmet, crocante
+- Si el título suena a carta de restaurante, ESTÁ MAL. Reescribilo más simple.
 
-IDIOMA Y ESTILO:
-- Español rioplatense (Argentina) con vocabulario local: heladera, bife, morrón, manteca, crema, palta, choclo
-- Tono profesional, formal y elegante
-- Voseo gramatical argentino ("cortá", "agregá", "mezclá")
-- EVITAR TERMINANTEMENTE: lunfardo, muletillas ("che", "viste", "tipo"), expresiones coloquiales
-
-CREATIVIDAD CULINARIA (MÁXIMA PRIORIDAD):
-- Rechazá recetas genéricas. Si ves "pollo + limón" no sugieras "Pollo al limón" básico
-- Buscá técnicas específicas: glaseados complejos, marinados con profundidad, confitados, sous vide conceptual (simulado en cocina casera)
-- Combiná sabores con propósito: ácido para cortar richness, umami para redondez, dulce para balance
-- Priorizá contrastes: textura (crocante vs cremoso), temperatura (contraste calor-frío si aplica), color visual
-
-PRECISIÓN NUTRICIONAL (CRÍTICO - USAR RAZONAMIENTO):
-- Especificá cantidades EXACTAS en gramos (ej: "200g pechuga de pollo sin piel", no "pollo")
-- Calculá macros usando base de datos USDA mental:
-  * 100g pechuga pollo sin piel: 31.0g proteína, 3.6g grasa, 0g carbs
-  * 100g arroz cocido: 2.7g proteína, 0.3g grasa, 28g carbs
-  * 1 huevo grande (50g): 6.3g proteína, 5.3g grasa, 0.6g carbs
-  * 100g papa cocida: 2g proteína, 0.1g grasa, 17g carbs
-- VERIFICA: suma de macros debe ser coherente (si usa 200g pollo, mínimo 62g proteína)
-- Indicá porciones EXACTAS y macros POR PORCIÓN (no totales)
-
-FORMATO DE RESPUESTA:
-- Títulos en Sentence case: "Bife de chorizo con reducción de vino tinto" ✓ (no "Bife De Chorizo...")
-- Ingredientes con medidas precisas: "250g de bife de chorizo" (no "1 bife")
-- Instrucciones numeradas con tiempos ESPECÍFICOS: "Cocinar 7-8 minutos a fuego fuerte, hasta dorar ambas caras"
-- Dificultad realista para cocina hogareña argentina (no recetas de Michelin, sí recetas de buen chef casero)`,
+OTRAS REGLAS:
+- Hablás con voseo (cortá, mezclá, poné)
+- Vocabulario argentino: manteca, morrón, verdeo, zapallo, palta, choclo
+- Calculá macros en silencio usando USDA, solo ponelos en el JSON`,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              title: {type: Type.STRING, description: "Nombre de la receta (Solo primera letra mayúscula, resto minúsculas)"},
+              title: {type: Type.STRING, description: "Nombre CASERO y SIMPLE. Ejemplos válidos: 'Milanesas con puré', 'Arroz con pollo', 'Fideos con salsa'. PROHIBIDO: rösti, emulsión, reducción, crocante, corazón de, confitado, y cualquier palabra de restaurante fancy."},
               description: {type: Type.STRING, description: "Breve descripción apetitosa y formal (max 20 palabras)"},
               preparationTime: {type: Type.STRING, description: "Tiempo estimado (ej. 30 min)"},
               difficulty: {type: Type.STRING, description: "Fácil, Media o Difícil"},
