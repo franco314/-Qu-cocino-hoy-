@@ -21,7 +21,8 @@ interface AuthContextType {
   startSubscription: (planType?: PlanType) => Promise<void>;
   cancelSubscription: () => Promise<void>;
   refreshPremiumStatus: () => Promise<void>;
-  // Dev mode toggle (only for testing)
+  // Dev mode functions (only for localhost testing)
+  devSetPremium: (value: boolean) => void;
   devTogglePremium: () => void;
 }
 
@@ -208,6 +209,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   /**
+   * Dev mode: Set premium status directly (only for localhost testing)
+   */
+  const devSetPremium = useCallback((value: boolean) => {
+    console.log(value ? '✨ DEV: Premium activado' : '🌑 DEV: Free activado');
+    setIsPremium(value);
+  }, []);
+
+  /**
    * Dev mode toggle for testing (removes need for actual payment)
    */
   const devTogglePremium = useCallback(() => {
@@ -228,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startSubscription,
     cancelSubscription,
     refreshPremiumStatus,
+    devSetPremium,
     devTogglePremium,
   };
 

@@ -17,7 +17,8 @@ export const generateRecipes = async (
   useStrictMatching: boolean,
   excludeRecipes: string[] = [],
   isPremium: boolean = false,
-  dietFilters: DietFilters = { vegetarian: false, vegan: false, glutenFree: false }
+  dietFilters: DietFilters = { vegetarian: false, vegan: false, glutenFree: false },
+  shouldGenerateImage: boolean = true
 ): Promise<Recipe[]> => {
   try {
     const generateRecipesFunction = httpsCallable(functions, "generateRecipes");
@@ -28,6 +29,7 @@ export const generateRecipes = async (
       excludeRecipes,
       isPremium,
       dietFilters,
+      shouldGenerateImage,
     });
 
     const data = response.data as { recipes: Recipe[] };

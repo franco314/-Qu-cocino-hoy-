@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { SharedRecipePage } from './pages/SharedRecipePage';
 import { SubscriptionSuccessPage } from './pages/SubscriptionSuccessPage';
+import DevPanel from './components/DevPanel';
 
 export default function App() {
   return (
@@ -13,6 +14,8 @@ export default function App() {
           <Route path="/subscription/success" element={<SubscriptionSuccessPage />} />
         </Routes>
       </BrowserRouter>
+      {/* Dev Panel - only visible on localhost */}
+      <DevPanel />
     </div>
   );
 }

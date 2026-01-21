@@ -13,7 +13,8 @@ import {
   Lock,
   Leaf,
   Wheat,
-  BookOpen
+  BookOpen,
+  Image
 } from 'lucide-react';
 import { IngredientInput } from '../components/IngredientInput';
 import { RecipeCard } from '../components/RecipeCard';
@@ -55,6 +56,8 @@ export const HomePage = () => {
     vegan: false,
     glutenFree: false,
   });
+  // Image generation toggle (Premium only, default OFF to save API costs)
+  const [withImage, setWithImage] = useState(false);
 
   // Favorite limit modal state
   const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
@@ -172,7 +175,7 @@ export const HomePage = () => {
         }
       }
 
-      const result = await generateRecipes(ingredients, useStrictMatching, excludeTitles, isPremium, dietFilters);
+      const result = await generateRecipes(ingredients, useStrictMatching, excludeTitles, isPremium, dietFilters, withImage);
       setRecipes(result);
 
       // Update titles: reset on fresh search, append on regeneration
@@ -543,29 +546,6 @@ export const HomePage = () => {
                       <span>Vegetariano</span>
                     </button>
 
-                    {/* Vegano - Premium only */}
-                    <button
-                      onClick={() => {
-                        if (!isPremium) {
-                          openPremiumModal('home');
-                        } else {
-                          setDietFilters(prev => ({ ...prev, vegan: !prev.vegan }));
-                        }
-                      }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
-                        !isPremium
-                          ? 'bg-white/60 text-gray-400 hover:bg-white/80'
-                          : dietFilters.vegan
-                            ? 'bg-green-600 text-white'
-                            : 'bg-white/90 text-gray-700 hover:bg-white'
-                      }`}
-                      title={!isPremium ? 'Disponible en Plan Chef Pro' : 'Filtrar recetas veganas'}
-                    >
-                      {!isPremium && <Lock size={12} />}
-                      <Leaf size={14} />
-                      <span>Vegano</span>
-                    </button>
-
                     {/* Sin TACC - Premium only */}
                     <button
                       onClick={() => {
@@ -587,6 +567,29 @@ export const HomePage = () => {
                       {!isPremium && <Lock size={12} />}
                       <Wheat size={14} />
                       <span>Sin TACC</span>
+                    </button>
+
+                    {/* Generate Image Toggle - Premium feature */}
+                    <button
+                      onClick={() => {
+                        if (!isPremium) {
+                          openPremiumModal('home');
+                        } else {
+                          setWithImage(prev => !prev);
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                        !isPremium
+                          ? 'bg-white/60 text-gray-400 hover:bg-white/80'
+                          : withImage
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-white/90 text-gray-700 hover:bg-white'
+                      }`}
+                      title={!isPremium ? 'Disponible en Plan Chef Pro' : withImage ? 'Generar imagen del plato (activo)' : 'Generar imagen del plato (desactivado)'}
+                    >
+                      {!isPremium && <Lock size={12} />}
+                      <Image size={14} />
+                      <span>Con imagen</span>
                     </button>
                   </div>
 

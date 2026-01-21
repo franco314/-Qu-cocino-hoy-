@@ -479,7 +479,8 @@ const generateRecipeImage = async (
       model: "gemini-2.5-flash-image",
       contents: {
         parts: [{
-          text: `Fotografía gastronómica profesional, realista y muy apetitosa de un plato de ${title}. Iluminación de estudio, alta resolución, estilo revista de cocina, 4k. IMPORTANTE: Imagen limpia, SIN TEXTO, sin letras, sin tipografía, sin marcas de agua sobre la imagen. Solo comida.`,
+          // Prompt optimizado para evitar zoom
+text: `Professional food photography of a ${title}, full plate visible, wide shot, high angle, showing the entire dish and side dishes. Clean composition, sharp focus on all food, cinematic lighting, no text, no watermarks.`,
         }],
       },
       config: {
@@ -511,15 +512,14 @@ export const generateRecipes = onCall(
   {secrets: [geminiApiKey]},
   async (request) => {
     try {
-      const {ingredients, useStrictMatching, excludeRecipes, isPremium, dietFilters} = request.data;
+      const {ingredients, useStrictMatching, excludeRecipes, isPremium, dietFilters, shouldGenerateImage} = request.data;
 
       // Process diet filters
       const dietRestrictions: string[] = [];
       const filters: DietFilters = dietFilters || { vegetarian: false, vegan: false, glutenFree: false };
 
-      if (filters.vegan) {
-        dietRestrictions.push("La receta debe ser 100% VEGANA: sin ningún ingrediente de origen animal (sin carne, pescado, huevos, lácteos, miel ni derivados animales)");
-      } else if (filters.vegetarian) {
+      // Note: vegan filter removed from UI but kept in interface for backwards compatibility
+      if (filters.vegetarian) {
         dietRestrictions.push("La receta debe ser VEGETARIANA: sin carne ni pescado, pero puede incluir huevos y lácteos");
       }
 
@@ -566,8 +566,8 @@ ${dietInstruction ? `<RESTRICCIONES_DIETÉTICAS>\n${dietInstruction}\n</RESTRICC
 
 <TAREA>
 Generá una receta rica y simple.
-1. Título DE CASA, como lo diría tu abuela (Ej: "Bifes con papas", "Pollo al horno", "Fideos con tuco"). NADA de palabras fancy como rösti, emulsión, reducción, crocante, corazón de.
-2. Instrucciones como si le explicaras a un amigo por WhatsApp.
+1. Título simple. Sin palabras fancy como rösti, emulsión, reducción, corazón de.
+2. Instrucciones claras, sin caer en complejidades innecesarias.
 3. Cantidades exactas en gramos para el cálculo de macros.
 </TAREA>
 `;
@@ -577,23 +577,23 @@ Generá una receta rica y simple.
         model: modelId,
         contents: prompt,
         config: {
-          systemInstruction: `Sos un cocinero de casa argentino. Cocinás como tu vieja o tu abuela, nada fancy.
+          systemInstruction: `Sos un cocinero de casa argentino con experiencia y muy buen cocinero.
 
 REGLA #1 - TÍTULOS (MUY IMPORTANTE):
-- SOLO usá nombres que dirías en tu casa sin palabras rimbombantes. El titulo debe reflejar lo que expresa la receta.
-- PALABRAS 100% PROHIBIDAS en títulos: rösti, emulsión, reducción, fondant, confitado, carpaccio, tataki, velouté, coulant, crème, brunoise, chiffonade, glasé, flambeado, escabeche gourmet, crocante
+- Usá nombres atractivos que no por eso sean rimbombantes. El titulo debe reflejar lo que expresa la receta.
+- PALABRAS 100% PROHIBIDAS en títulos: rösti, emulsión, reducción, fondant, confitado, carpaccio, tataki, velouté, coulant, crème, brunoise, chiffonade, glasé, flambeado, escabeche gourmet
 - Si el título suena a carta de restaurante, ESTÁ MAL. Reescribilo más simple.
 
 OTRAS REGLAS:
-- Hablás con voseo (cortá, mezclá, poné)
+- Hablá con voseo (cortá, mezclá, poné)
 - Vocabulario argentino: manteca, morrón, verdeo, zapallo, palta, choclo
 - Calculá macros en silencio usando USDA, solo ponelos en el JSON`,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              title: {type: Type.STRING, description: "Nombre CASERO y SIMPLE. Ejemplos válidos: 'Milanesas con puré', 'Arroz con pollo', 'Fideos con salsa'. PROHIBIDO: rösti, emulsión, reducción, crocante, corazón de, confitado, y cualquier palabra de restaurante fancy."},
-              description: {type: Type.STRING, description: "Breve descripción apetitosa y formal (max 20 palabras)"},
+              title: {type: Type.STRING, description: "Nombre simple y atractivo. PROHIBIDO: rösti, emulsión, reducción, crocante, corazón de, confitado, y cualquier palabra de restaurante fancy."},
+              description: {type: Type.STRING, description: "Breve descripción apetitosa y formal (máximo 35 palabras)"},
               preparationTime: {type: Type.STRING, description: "Tiempo estimado (ej. 30 min)"},
               difficulty: {type: Type.STRING, description: "Fácil, Media o Difícil"},
               calories: {type: Type.INTEGER, description: "Calorías estimadas por porción"},
@@ -687,8 +687,8 @@ OTRAS REGLAS:
           } : undefined,
         };
 
-        // Generate image only if isPremium is EXPLICITLY true
-        if (isPremium === true) {
+        // Generate image only if isPremium AND shouldGenerateImage are both true
+        if (isPremium === true && shouldGenerateImage !== false) {
           const imageUrl = await generateRecipeImage(ai, recipe.title);
           recipe.imageUrl = imageUrl;
         }
