@@ -29,5 +29,10 @@ module.exports = {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
+    "max-len": ["warn", { "code": 120, "ignoreUrls": true, "ignoreStrings": true, "ignoreTemplateLiterals": true }],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "require-jsdoc": "off",
+    "valid-jsdoc": "off",
+    "operator-linebreak": ["error", "after", { "overrides": { "?": "before", ":": "before" } }],
   },
 };

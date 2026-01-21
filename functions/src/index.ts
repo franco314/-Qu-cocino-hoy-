@@ -96,7 +96,7 @@ export const createSubscription = onCall(
 
       logger.info(`🔗 [createSubscription] back_url: ${backUrl}`);
       if (isLocalDev) {
-        logger.info(`🔧 [createSubscription] Petición desde entorno local detectada`);
+        logger.info("🔧 [createSubscription] Petición desde entorno local detectada");
       }
 
       // Use the real user email for production
@@ -108,19 +108,19 @@ export const createSubscription = onCall(
       const isYearly = planType === "yearly";
       const planConfig = isYearly
         ? {
-            reason: "Plan Chef Pro Anual",
-            frequency: 12,
-            frequency_type: "months" as const,
-            transaction_amount: 29400,
-          }
+          reason: "Plan Chef Pro Anual",
+          frequency: 12,
+          frequency_type: "months" as const,
+          transaction_amount: 29400,
+        }
         : {
-            reason: "Plan Chef Pro Mensual",
-            frequency: 1,
-            frequency_type: "months" as const,
-            transaction_amount: 3500,
-          };
+          reason: "Plan Chef Pro Mensual",
+          frequency: 1,
+          frequency_type: "months" as const,
+          transaction_amount: 3500,
+        };
 
-      logger.info(`💰 [createSubscription] Configuración del plan:`, planConfig);
+      logger.info("💰 [createSubscription] Configuración del plan:", planConfig);
 
       // Build subscription request body
       const subscriptionBody = {
@@ -480,7 +480,7 @@ const generateRecipeImage = async (
       contents: {
         parts: [{
           // Prompt optimizado para evitar zoom
-text: `Professional food photography of a ${title}, full plate visible, wide shot, high angle, showing the entire dish and side dishes. Clean composition, sharp focus on all food, cinematic lighting, no text, no watermarks.`,
+          text: `Professional food photography of a ${title}, full plate visible, wide shot, high angle, showing the entire dish and side dishes. Clean composition, sharp focus on all food, cinematic lighting, no text, no watermarks.`,
         }],
       },
       config: {
@@ -508,15 +508,39 @@ interface DietFilters {
   glutenFree: boolean;
 }
 
+// Interface for raw Gemini API response (structured output)
+interface RawGeminiRecipe {
+  title?: string;
+  description?: string;
+  preparationTime?: string;
+  difficulty?: string;
+  calories?: number;
+  ingredientsNeeded?: string[];
+  missingIngredients?: string[];
+  instructions?: string[];
+  macros?: {
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+  };
+}
+
 export const generateRecipes = onCall(
   {secrets: [geminiApiKey]},
   async (request) => {
     try {
-      const {ingredients, useStrictMatching, excludeRecipes, isPremium, dietFilters, shouldGenerateImage} = request.data;
+      const {
+        ingredients,
+        useStrictMatching,
+        excludeRecipes,
+        isPremium,
+        dietFilters,
+        shouldGenerateImage,
+      } = request.data;
 
       // Process diet filters
       const dietRestrictions: string[] = [];
-      const filters: DietFilters = dietFilters || { vegetarian: false, vegan: false, glutenFree: false };
+      const filters: DietFilters = dietFilters || {vegetarian: false, vegan: false, glutenFree: false};
 
       // Note: vegan filter removed from UI but kept in interface for backwards compatibility
       if (filters.vegetarian) {
@@ -544,13 +568,13 @@ export const generateRecipes = onCall(
 
       const ingredientsList = ingredients.join(", ");
 
-      const strategyInstruction = useStrictMatching ?
-      "MODO DESAFÍO: Buscá una forma de usar los ingredientes en un plato casero, rico y fácil de entender." :
-      "MODO FLEXIBLE: Priorizá la practicidad. Recetas de pocos pasos y mucho sabor.";
+      const strategyInstruction = useStrictMatching
+        ? "MODO DESAFÍO: Buscá una forma de usar los ingredientes en un plato casero, rico y fácil de entender."
+        : "MODO FLEXIBLE: Priorizá la practicidad. Recetas de pocos pasos y mucho sabor.";
 
-      const exclusions = excludeRecipes && excludeRecipes.length > 0 ?
-      `IMPORTANTE: El usuario ya vio las siguientes recetas, así que POR FAVOR GENERÁ OPCIONES COMPLETAMENTE DISTINTAS a estas: ${excludeRecipes.join(", ")}. Buscá variedad en métodos de cocción o perfiles de sabor.` :
-      "";
+      const exclusions = excludeRecipes && excludeRecipes.length > 0
+        ? `IMPORTANTE: El usuario ya vio las siguientes recetas, así que POR FAVOR GENERÁ OPCIONES COMPLETAMENTE DISTINTAS a estas: ${excludeRecipes.join(", ")}. Buscá variedad en métodos de cocción o perfiles de sabor.`
+        : "";
 
       const prompt = `
 <INGREDIENTES_DISPONIBLES>
@@ -641,7 +665,7 @@ OTRAS REGLAS:
           rawData = rawData.substring(firstBrace, lastBrace + 1);
         }
 
-        let rawRecipe: any = null;
+        let rawRecipe: RawGeminiRecipe | null = null;
         try {
           const parsed = JSON.parse(rawData);
           if (parsed && typeof parsed === "object") {
@@ -670,15 +694,15 @@ OTRAS REGLAS:
           preparationTime: String(rawRecipe.preparationTime || "-- min"),
           difficulty: String(rawRecipe.difficulty || "Media"),
           calories: typeof rawRecipe.calories === "number" ? rawRecipe.calories : 0,
-          ingredientsNeeded: Array.isArray(rawRecipe.ingredientsNeeded) ?
-          rawRecipe.ingredientsNeeded.map(String) :
-          [],
-          missingIngredients: Array.isArray(rawRecipe.missingIngredients) ?
-          rawRecipe.missingIngredients.map(String) :
-          [],
-          instructions: Array.isArray(rawRecipe.instructions) ?
-          rawRecipe.instructions.map(String) :
-          [],
+          ingredientsNeeded: Array.isArray(rawRecipe.ingredientsNeeded)
+            ? rawRecipe.ingredientsNeeded.map(String)
+            : [],
+          missingIngredients: Array.isArray(rawRecipe.missingIngredients)
+            ? rawRecipe.missingIngredients.map(String)
+            : [],
+          instructions: Array.isArray(rawRecipe.instructions)
+            ? rawRecipe.instructions.map(String)
+            : [],
           imageUrl: undefined,
           macros: rawRecipe.macros && typeof rawRecipe.macros === "object" ? {
             protein: typeof rawRecipe.macros.protein === "number" ? rawRecipe.macros.protein : 0,
@@ -698,7 +722,7 @@ OTRAS REGLAS:
       }
 
       throw new HttpsError("internal", "No se recibieron recetas");
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error generating recipes:", error);
       if (error instanceof HttpsError) {
         throw error;
