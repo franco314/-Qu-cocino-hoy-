@@ -482,7 +482,7 @@ export const HomePage = () => {
           <>
             {/* Hero Section with Floating UI (Only on Input State) */}
             {appState === AppState.INPUT && (
-              <div className="flex flex-col items-center justify-center min-h-[80vh] pt-20">
+              <div className="flex flex-col items-center justify-center min-h-[80vh] pt-32 md:pt-20">
                 {/* Hero Title - Floating over background */}
                 <div className="text-center mb-8 animate-fade-in-down">
                   <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-3 tracking-tight drop-shadow-lg">

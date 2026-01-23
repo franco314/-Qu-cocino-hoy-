@@ -29,3 +29,4 @@ firestore-debug.log
 *.sw?
 .env
 .env.local
+nul

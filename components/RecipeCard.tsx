@@ -33,7 +33,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
 
   return (
     <article
-      className="bg-white/80 backdrop-blur-md rounded-3xl overflow-hidden border border-white/30 shadow-sm hover:shadow-lg transition-all duration-500 flex flex-col relative focus-within:ring-2 focus-within:ring-orange-500/50"
+      className="bg-white/95 md:bg-white/80 md:backdrop-blur-md rounded-3xl overflow-hidden border border-white/30 shadow-sm hover:shadow-lg transition-all duration-500 flex flex-col relative focus-within:ring-2 focus-within:ring-orange-500/50 transform-gpu"
       style={{ animationDelay: `${index * 150}ms` }}
     >
       {/* Image Section */}
@@ -43,6 +43,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
             src={recipe.imageUrl} 
             alt={`Foto del plato terminado: ${recipe.title}`} 
             className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+            loading="lazy"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 relative overflow-hidden" aria-hidden="true">
@@ -63,7 +64,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
         
         {/* Difficulty Badge - Adjusted colors for contrast */}
         <div className="absolute top-4 left-4 z-10">
-           <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase shadow-sm backdrop-blur-md ${
+           <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase shadow-sm md:backdrop-blur-md ${
             recipe.difficulty === 'Fácil' ? 'bg-green-600/90 text-white' : // Darker green for white text
             recipe.difficulty === 'Media' ? 'bg-yellow-300/95 text-yellow-900' : // Dark text on yellow bg
             'bg-red-600/90 text-white' // Darker red
@@ -79,7 +80,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
             <button
                 onClick={handleWhatsAppShare}
                 disabled={isSharing}
-                className={`p-2.5 rounded-full bg-white/90 backdrop-blur-md shadow-md transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-500 hover:bg-[#25D366] hover:text-white hover:shadow-green-300/40 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center ${isSharing ? 'opacity-75 cursor-wait' : ''}`}
+                className={`p-2.5 rounded-full bg-white/95 md:bg-white/90 md:backdrop-blur-md shadow-md transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-500 hover:bg-[#25D366] hover:text-white hover:shadow-green-300/40 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center ${isSharing ? 'opacity-75 cursor-wait' : ''}`}
                 aria-label={`Compartir receta ${recipe.title} por WhatsApp`}
                 title="Compartir por WhatsApp"
             >
@@ -99,7 +100,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
                 onToggleFavorite(recipe);
                 }}
                 disabled={!isFavorite && !canAddToFavorites}
-                className={`p-2.5 rounded-full backdrop-blur-md shadow-md transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-red-500 relative ${
+                className={`p-2.5 rounded-full md:backdrop-blur-md shadow-md transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-red-500 relative ${
                   !isFavorite && !canAddToFavorites
                     ? 'bg-gray-100 cursor-not-allowed opacity-60'
                     : 'bg-white/90 hover:bg-white'
@@ -136,7 +137,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
                   e.stopPropagation();
                   onDeleteFavorite(recipe);
                 }}
-                className="p-2.5 rounded-full bg-white/90 backdrop-blur-md hover:bg-red-50 shadow-md transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="p-2.5 rounded-full bg-white/95 md:bg-white/90 md:backdrop-blur-md hover:bg-red-50 shadow-md transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-red-500"
                 aria-label={`Eliminar receta ${recipe.title}`}
                 title="Eliminar receta"
               >
@@ -174,7 +175,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
 
       {/* Missing Ingredients Warning */}
       {missingIngredients.length > 0 && (
-        <div className="bg-orange-500/10 backdrop-blur-sm px-6 py-3 border-t border-orange-500/20 flex items-start gap-3" role="note" aria-label="Sugerencia de ingredientes">
+        <div className="bg-orange-100/90 md:bg-orange-500/10 md:backdrop-blur-sm px-6 py-3 border-t border-orange-500/20 flex items-start gap-3" role="note" aria-label="Sugerencia de ingredientes">
           <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <p className="text-xs font-bold text-orange-900 uppercase tracking-wide mb-1">Le quedaría bien agregar:</p>
@@ -236,7 +237,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({ recipe, index, isFavorit
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={instructionsId}
-        className="mt-auto w-full py-3 px-6 bg-white/50 hover:bg-white/70 backdrop-blur-sm border-t border-white/20 text-gray-700 text-sm font-medium flex items-center justify-center transition-colors focus:outline-none focus:bg-white/70 focus:text-black focus:ring-inset focus:ring-2 focus:ring-orange-500/50"
+        className="mt-auto w-full py-3 px-6 bg-white/90 md:bg-white/50 hover:bg-white/70 md:backdrop-blur-sm border-t border-white/20 text-gray-700 text-sm font-medium flex items-center justify-center transition-colors focus:outline-none focus:bg-white/70 focus:text-black focus:ring-inset focus:ring-2 focus:ring-orange-500/50"
       >
         {isExpanded ? (
             <>

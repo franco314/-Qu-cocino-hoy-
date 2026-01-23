@@ -66,7 +66,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
     if (!ingredients.includes(ing)) {
       onAdd(ing);
     }
-    inputRef.current?.focus();
+    // Removed: inputRef.current?.focus() - prevents keyboard from appearing on mobile when using quick-add buttons
   };
 
   return (
@@ -74,7 +74,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
       {/* Main Input Container - Glassmorphism style */}
       <label
         htmlFor="ingredient-input"
-        className="bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-lg focus-within:ring-2 focus-within:ring-orange-500/30 focus-within:shadow-xl transition-all duration-300 cursor-text relative z-20 block"
+        className="bg-white/95 md:backdrop-blur-sm p-4 rounded-2xl shadow-lg focus-within:ring-2 focus-within:ring-orange-500/30 focus-within:shadow-xl transition-all duration-300 cursor-text relative z-20 block"
         onClick={(e) => {
           // Prevent focus loop if clicking on the input itself
           if (e.target !== inputRef.current) {
@@ -139,7 +139,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
               <button
                 key={idx}
                 onClick={() => onSelectHistory(histSet)}
-                className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md text-xs text-gray-700 transition-all duration-200 group whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-orange-500/40 shadow-sm"
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/95 md:bg-white/80 md:backdrop-blur-sm hover:bg-white hover:shadow-md text-xs text-gray-700 transition-all duration-200 group whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-orange-500/40 shadow-sm"
                 aria-label={`Usar combinación reciente: ${histSet.join(', ')}`}
               >
                 <Clock size={12} className="text-gray-400 group-hover:text-orange-500" aria-hidden="true" />
@@ -172,10 +172,10 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
                 disabled={isSelected}
                 aria-pressed={isSelected}
                 aria-label={isSelected ? `${ing} agregado` : `Agregar ${ing}`}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20 shadow-sm backdrop-blur-sm
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20 shadow-sm md:backdrop-blur-sm
                   ${isSelected
                     ? 'bg-green-500/90 text-white cursor-default'
-                    : 'bg-white/80 text-gray-700 hover:bg-white hover:shadow-md active:scale-95'
+                    : 'bg-white/95 md:bg-white/80 text-gray-700 hover:bg-white hover:shadow-md active:scale-95'
                   }`}
               >
                 {isSelected ? <X size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}

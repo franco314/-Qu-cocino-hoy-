@@ -13,6 +13,15 @@
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f9fafb;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+      }
+      /* GPU acceleration for animated elements */
+      .transform-gpu,
+      .animate-slide-up,
+      .animate-fadeIn {
+        will-change: transform;
+        transform: translateZ(0);
       }
       /* Custom scrollbar - Only show on desktop */
       @media (min-width: 768px) {
@@ -69,6 +78,10 @@
       /* Safe area padding for mobile devices with notches */
       .safe-area-pb {
         padding-bottom: max(16px, env(safe-area-inset-bottom));
+      }
+      /* Transparent backgrounds to prevent blocking the hero */
+      html, body, #root {
+        background-color: transparent !important;
       }
     </style>
   <script type="importmap">
