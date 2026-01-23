@@ -22,6 +22,7 @@ import { RecipeSpotlight } from '../components/RecipeSpotlight';
 import { LoginButton } from '../components/LoginButton';
 import { UserProfile } from '../components/UserProfile';
 import { FavoriteLimitModal, ModalContext } from '../components/FavoriteLimitModal';
+import { PWAInstallPrompt, PWAInstallButton } from '../components/PWAInstallPrompt';
 import { useAuth } from '../contexts/AuthContext';
 import { generateRecipes } from '../services/geminiService';
 import { favoritesService } from '../services/favoritesService';
@@ -366,6 +367,9 @@ export const HomePage = () => {
                 )}
               </button>
             )}
+
+            {/* PWA Install Button - Desktop only, to the left of login */}
+            <PWAInstallButton isHeroMode={useTransparentHeader} />
 
             {/* User Profile / Login */}
             {user ? (
@@ -780,6 +784,9 @@ export const HomePage = () => {
           </div>
         </div>
       )}
+
+      {/* PWA Install Prompt - Shows contextual install banner/button */}
+      <PWAInstallPrompt />
     </div>
   );
 };

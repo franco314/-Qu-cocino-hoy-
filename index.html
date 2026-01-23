@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f97316" />
+    <meta name="description" content="Tu asistente de cocina con IA. Descubrí qué cocinar hoy con los ingredientes que tenés." />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>¿Qué cocino hoy?</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,16 +14,61 @@
         font-family: 'Inter', sans-serif;
         background-color: #f9fafb;
       }
-      /* Custom scrollbar for cleaner look */
-      ::-webkit-scrollbar {
-        width: 8px;
+      /* Custom scrollbar - Only show on desktop */
+      @media (min-width: 768px) {
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background-color: #cbd5e1;
+          border-radius: 20px;
+        }
       }
-      ::-webkit-scrollbar-track {
-        background: transparent;
+      /* Hide scrollbar on mobile - use native thin scrollbar */
+      @media (max-width: 767px) {
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        * {
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none; /* Firefox */
+        }
       }
-      ::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
-        border-radius: 20px;
+      /* Utility class to hide scrollbar */
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      /* PWA Install Prompt Animations */
+      @keyframes slide-up {
+        from {
+          transform: translateY(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-slide-up {
+        animation: slide-up 0.3s ease-out forwards;
+      }
+      .animate-fade-in {
+        animation: fade-in 0.2s ease-out forwards;
+      }
+      /* Safe area padding for mobile devices with notches */
+      .safe-area-pb {
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
       }
     </style>
   <script type="importmap">

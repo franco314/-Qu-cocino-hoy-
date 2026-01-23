@@ -124,7 +124,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
       {/* History Section - Floating style */}
       {history && history.length > 0 && onSelectHistory && (
         <div
-          className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
+          className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide overscroll-x-contain touch-pan-x"
           role="group"
           aria-label="Combinaciones recientes"
         >
@@ -159,7 +159,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
           Agregá rápido los básicos
         </p>
         <div
-          className="flex flex-wrap gap-2"
+          className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide md:max-h-none md:overflow-visible md:overscroll-auto"
           role="group"
           aria-labelledby="quick-add-label"
         >
