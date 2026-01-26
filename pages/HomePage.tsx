@@ -24,9 +24,12 @@ import { UserProfile } from '../components/UserProfile';
 import { FavoriteLimitModal, ModalContext } from '../components/FavoriteLimitModal';
 import { PWAInstallPrompt, PWAInstallButton } from '../components/PWAInstallPrompt';
 import { useAuth } from '../contexts/AuthContext';
-import { generateRecipes } from '../services/geminiService';
+import { generateRecipes, generateSingleImage } from '../services/geminiService';
 import { favoritesService } from '../services/favoritesService';
+import { storageService } from '../services/storageService';
 import { historyService } from '../services/historyService';
+import { db } from '../config/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { Recipe, AppState } from '../types';
 
 type Tab = 'SEARCH' | 'FAVORITES';
@@ -59,6 +62,10 @@ export const HomePage = () => {
   });
   // Image generation toggle (Premium only, default OFF to save API costs)
   const [withImage, setWithImage] = useState(false);
+  // Saving state for loading feedback and preventing double-clicks
+  const [isSaving, setIsSaving] = useState(false);
+  // Save error state for user feedback
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Favorite limit modal state
   const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
@@ -216,7 +223,41 @@ export const HomePage = () => {
     sessionStorage.removeItem('qch_session');
   }, []);
 
+  const handleGenerateImage = async (recipe: Recipe) => {
+    if (!isPremium || !user) return;
+    
+    try {
+      // 1. Generate image Base64 from Gemini
+      const imageUrlBase64 = await generateSingleImage(recipe.title, isPremium);
+      
+      // 2. Persist to Firebase Storage
+      const permanentUrl = await storageService.persistRecipeImage(user.uid, recipe.id, imageUrlBase64);
+      
+      // 3. Update local recipes state
+      setRecipes(prev => prev.map(r => r.id === recipe.id ? { ...r, imageUrl: permanentUrl } : r));
+      
+      // 4. If it's a favorite, update Firestore and local favorites state
+      const isFav = favorites.some(f => f.id === recipe.id);
+      if (isFav) {
+        const favoriteRef = doc(db, 'users', user.uid, 'favorites', recipe.id);
+        await updateDoc(favoriteRef, { imageUrl: permanentUrl });
+        setFavorites(prev => prev.map(f => f.id === recipe.id ? { ...f, imageUrl: permanentUrl } : f));
+      }
+    } catch (e: any) {
+      console.error("Error generating image on demand:", e);
+      setSaveError(`Error al generar imagen: ${e.message}`);
+      setTimeout(() => setSaveError(null), 5000);
+      throw e;
+    }
+  };
+
   const handleToggleFavorite = async (recipe: Recipe) => {
+    // Prevent double-click while saving
+    if (isSaving) return;
+    
+    // Clear any previous error
+    setSaveError(null);
+    
     try {
         // Check if recipe is already a favorite
         const isCurrentlyFavorite = favorites.some(f => f && f.id === recipe.id);
@@ -231,20 +272,47 @@ export const HomePage = () => {
           }
         }
 
-        // Proceed with toggle (either removing or adding within limits)
-        const newFavorites = await favoritesService.toggleFavorite(recipe);
+        // Set saving state for visual feedback
+        setIsSaving(true);
+        
+        // Proceed with toggle - pass current favorites to avoid redundant Firestore read
+        const newFavorites = await favoritesService.toggleFavorite(recipe, isPremium, favorites);
         setFavorites(newFavorites);
     } catch (e) {
-        console.error("Error toggling favorite", e);
+        console.error("Error toggling favorite:", e);
+        // Show user-friendly error message
+        const errorMessage = e instanceof Error ? e.message : 'Error al guardar la receta';
+        // Check if it's a Firestore size limit error
+        if (errorMessage.includes('exceeds the maximum') || errorMessage.includes('too large')) {
+          setSaveError('La imagen es demasiado grande. Intentá guardar sin imagen.');
+        } else {
+          setSaveError(`Error: ${errorMessage}`);
+        }
+        // Auto-clear error after 5 seconds
+        setTimeout(() => setSaveError(null), 5000);
+    } finally {
+        setIsSaving(false);
     }
   };
 
   const handleDeleteFavorite = async (recipe: Recipe) => {
+    // Prevent double-click while saving
+    if (isSaving) return;
+    
+    setSaveError(null);
+    
     try {
-        const newFavorites = await favoritesService.toggleFavorite(recipe);
+        setIsSaving(true);
+        // Pass current favorites to avoid redundant Firestore read
+        const newFavorites = await favoritesService.toggleFavorite(recipe, isPremium, favorites);
         setFavorites(newFavorites);
     } catch (e) {
-        console.error("Error deleting favorite", e);
+        console.error("Error deleting favorite:", e);
+        const errorMessage = e instanceof Error ? e.message : 'Error al eliminar la receta';
+        setSaveError(`Error: ${errorMessage}`);
+        setTimeout(() => setSaveError(null), 5000);
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -470,6 +538,8 @@ export const HomePage = () => {
                     onToggleFavorite={handleToggleFavorite}
                     onDeleteFavorite={handleDeleteFavorite}
                     canAddToFavorites={canAddMoreFavorites(recipe.id)}
+                    isPremium={isPremium}
+                    onGenerateImage={handleGenerateImage}
                   />
                 ))}
               </div>
@@ -487,10 +557,10 @@ export const HomePage = () => {
                 <div className="text-center mb-8 animate-fade-in-down">
                   <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-3 tracking-tight drop-shadow-lg">
                     <span className="text-orange-500">
-                      ¿Qué cocinamos hoy?
+                      ¿Qué cocino hoy?
                     </span>
                   </h2>
-                  <p className="text-lg md:text-xl text-gray-800 font-semibold drop-shadow-md">
+                  <p className="text-lg md:text-xl text-slate-100 drop-shadow-lg font-medium md:text-slate-800">
                     Decime qué tenés, te digo qué comer.
                   </p>
                 </div>
@@ -719,7 +789,11 @@ export const HomePage = () => {
                   onDeleteFavorite={handleDeleteFavorite}
                   isPremium={isPremium}
                   canAddToFavorites={canAddMoreFavorites(recipes[0].id)}
+                  isSaving={isSaving}
+                  saveError={saveError}
                   onLimitReached={() => openPremiumModal('limit')}
+                  onShowPremiumInfo={() => openPremiumModal('home')}
+                  onGenerateImage={handleGenerateImage}
                 />
 
                 {/* Botonera de Regeneración - Glassmorphism */}

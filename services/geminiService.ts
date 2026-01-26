@@ -58,3 +58,26 @@ export const generateRecipes = async (
     throw new Error("No se pudo generar las recetas. Intente nuevamente.");
   }
 };
+
+/**
+ * Generates a single image for a recipe title.
+ */
+export const generateSingleImage = async (
+  title: string,
+  isPremium: boolean = false
+): Promise<string> => {
+  try {
+    const generateImageFunction = httpsCallable(functions, "generateSingleRecipeImage");
+    const response = await generateImageFunction({ title, isPremium });
+    const data = response.data as { imageUrl: string };
+    
+    if (!data || !data.imageUrl) {
+      throw new Error("No se pudo obtener la imagen");
+    }
+    
+    return data.imageUrl;
+  } catch (error: any) {
+    console.error("Error generating single image:", error);
+    throw new Error(error.message || "Error al disparar la generación de imagen");
+  }
+};

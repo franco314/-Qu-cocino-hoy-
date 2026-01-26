@@ -16,6 +16,11 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "emulators": {
+    "functions": {
+      "port": 5002
+    }
+  },
   "functions": [
     {
       "source": "functions",

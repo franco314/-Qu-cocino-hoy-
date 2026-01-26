@@ -526,7 +526,11 @@ interface RawGeminiRecipe {
 }
 
 export const generateRecipes = onCall(
-  {secrets: [geminiApiKey]},
+  {
+    secrets: [geminiApiKey],
+    cors: true,
+    maxInstances: 10
+  },
   async (request) => {
     try {
       const {
@@ -731,3 +735,62 @@ OTRAS REGLAS:
     }
   }
 );
+
+/**
+ * Generates an image for a specific recipe title.
+ * Exclusive for Premium users to use "on-demand".
+ */
+export const generateSingleRecipeImage = onCall(
+  {
+    secrets: [geminiApiKey],
+    cors: true, // Forzar CORS para evitar bloqueos desde localhost
+    maxInstances: 10
+  },
+  async (request) => {
+    logger.info("🎨 [generateSingleRecipeImage] Iniciando generación bajo demanda...");
+    
+    try {
+      const {title, isPremium} = request.data;
+      
+      logger.info(`📋 [generateSingleRecipeImage] Título: ${title}, Premium: ${isPremium}`);
+
+      if (!isPremium) {
+        logger.warn("❌ [generateSingleRecipeImage] Intento de acceso no premium");
+        throw new HttpsError(
+          "permission-denied",
+          "Esta función es exclusiva para usuarios Chef Pro"
+        );
+      }
+
+      if (!title) {
+        logger.warn("❌ [generateSingleRecipeImage] Título ausente");
+        throw new HttpsError(
+          "invalid-argument",
+          "Se requiere el título de la receta"
+        );
+      }
+
+      const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
+      
+      logger.info("📡 [generateSingleRecipeImage] Llamando a Gemini Flash Image...");
+      const imageUrl = await generateRecipeImage(ai, title);
+
+      if (!imageUrl) {
+        logger.error("❌ [generateSingleRecipeImage] Gemini no devolvió ninguna imagen");
+        throw new HttpsError(
+          "internal",
+          "No se pudo generar la imagen en este momento. Intentá nuevamente."
+        );
+      }
+
+      logger.info("✅ [generateSingleRecipeImage] Imagen generada exitosamente");
+      return {imageUrl};
+    } catch (error: unknown) {
+      logger.error("💥 [generateSingleRecipeImage] Error crítico:", error);
+      if (error instanceof HttpsError) throw error;
+      throw new HttpsError("internal", "Error al generar la imagen");
+    }
+  }
+);
+
+

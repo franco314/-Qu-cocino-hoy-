@@ -1,6 +1,7 @@
 import { Recipe } from '../types';
 import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, query } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { storageService } from './storageService';
 
 const STORAGE_KEY = 'que_cocino_hoy_favorites'; // Keep as fallback
 
@@ -55,8 +56,11 @@ export const favoritesService = {
   /**
    * Toggle a recipe as favorite.
    * Returns the new list of favorites.
+   * @param recipe - The recipe to toggle
+   * @param isPremium - If true, preserves imageUrl for persistent image storage (Premium feature)
+   * @param currentFavorites - Optional: pass current favorites to avoid redundant Firestore read
    */
-  toggleFavorite: async (recipe: Recipe): Promise<Recipe[]> => {
+  toggleFavorite: async (recipe: Recipe, isPremium: boolean = false, currentFavorites?: Recipe[]): Promise<Recipe[]> => {
     try {
       // Validate input recipe
       if (!recipe || !recipe.id) return [];
@@ -69,8 +73,8 @@ export const favoritesService = {
         const db = getFirestore();
         const favoriteRef = doc(db, 'users', user.uid, 'favorites', recipe.id);
 
-        // Check if already exists
-        const favorites = await favoritesService.getFavorites();
+        // Use provided favorites or fetch from Firestore (optimization: avoid extra read)
+        const favorites = currentFavorites ?? await favoritesService.getFavorites();
         const exists = favorites.some(f => f && f.id === recipe.id);
 
         if (exists) {
@@ -78,10 +82,31 @@ export const favoritesService = {
           await deleteDoc(favoriteRef);
           return favorites.filter(f => f && f.id !== recipe.id);
         } else {
-          // Add to favorites (strip imageUrl to save storage)
-          const { imageUrl, ...recipeWithoutImage } = recipe;
-          await setDoc(favoriteRef, recipeWithoutImage);
-          return [...favorites, recipeWithoutImage as Recipe];
+          // Add to favorites
+          // Premium users: preserve imageUrl for persistent visualization
+          // Free users: strip imageUrl to save Firestore storage
+          let recipeToSave: Recipe = { ...recipe };
+          
+          if (isPremium) {
+            // If image is Base64 OR it's an external URL (not already in our storage)
+            // persist it to Storage to ensure it's permanent and avoid size limits
+            const isBase64 = recipeToSave.imageUrl?.startsWith('data:image');
+            const isExternalUrl = recipeToSave.imageUrl?.startsWith('http') && !recipeToSave.imageUrl?.includes('firebasestorage.googleapis.com');
+            
+            if (recipeToSave.imageUrl && (isBase64 || isExternalUrl)) {
+              try {
+                const downloadUrl = await storageService.persistRecipeImage(user.uid, recipe.id, recipeToSave.imageUrl);
+                recipeToSave.imageUrl = downloadUrl;
+              } catch (storageErr) {
+                console.error("Storage upload failed, attempting to save with original imageUrl anyway:", storageErr);
+              }
+            }
+          } else {
+            const { imageUrl, ...recipeWithoutImage } = recipe;
+            recipeToSave = recipeWithoutImage as Recipe;
+          }
+          await setDoc(favoriteRef, recipeToSave);
+          return [...favorites, recipeToSave];
         }
       }
 
@@ -96,16 +121,23 @@ export const favoritesService = {
       if (exists) {
         favorites = favorites.filter(f => f && f.id !== recipe.id);
       } else {
-        const { imageUrl, ...recipeWithoutImage } = recipe;
-        favorites.push(recipeWithoutImage as Recipe);
+        // Same logic: Premium preserves image, Free strips it
+        let recipeToSave: Recipe;
+        if (isPremium) {
+          recipeToSave = { ...recipe };
+        } else {
+          const { imageUrl, ...recipeWithoutImage } = recipe;
+          recipeToSave = recipeWithoutImage as Recipe;
+        }
+        favorites.push(recipeToSave);
       }
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
       return favorites;
     } catch (error) {
-      console.error("Error saving favorite", error);
-      // Return current favorites to keep UI stable
-      return await favoritesService.getFavorites();
+      console.error("Error saving favorite:", error);
+      // Re-throw the error so the caller can handle it appropriately
+      throw error;
     }
   },
 

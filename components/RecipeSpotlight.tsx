@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, ChefHat, Flame, AlertCircle, List, Heart, Loader2, Trash2 } from 'lucide-react';
 import { Recipe } from '../types';
 import { useShareRecipe } from '../hooks/useShareRecipe';
@@ -10,7 +10,11 @@ interface RecipeSpotlightProps {
   onDeleteFavorite?: (recipe: Recipe) => void;
   isPremium?: boolean;
   canAddToFavorites?: boolean;
-  onLimitReached?: () => void;
+  isSaving?: boolean; // Loading state for save button feedback
+  saveError?: string | null; // Error message state
+  onLimitReached?: () => void; // Se dispara cuando el usuario alcanza el límite de 3 recetas
+  onShowPremiumInfo?: () => void; // Se dispara para mostrar info de Premium (invitación, no restricción)
+  onGenerateImage?: (recipe: Recipe) => Promise<void>;
 }
 
 export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
@@ -20,8 +24,13 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
   onDeleteFavorite,
   isPremium = false,
   canAddToFavorites = true,
-  onLimitReached
+  isSaving = false,
+  saveError = null,
+  onLimitReached,
+  onShowPremiumInfo,
+  onGenerateImage
 }) => {
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const { isSharing, shareViaWhatsApp } = useShareRecipe();
 
   if (!recipe) return null;
@@ -33,6 +42,18 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
   const handleWhatsAppShare = (e: React.MouseEvent) => {
     e.stopPropagation();
     shareViaWhatsApp(recipe);
+  };
+
+  const handleGenerateClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onGenerateImage && !isGeneratingImage) {
+      setIsGeneratingImage(true);
+      try {
+        await onGenerateImage(recipe);
+      } finally {
+        setIsGeneratingImage(false);
+      }
+    }
   };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -80,17 +101,48 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
               </div>
             </>
           ) : (
-            /* Premium Upsell */
-            <div className="flex flex-col items-center justify-center h-full text-center p-6">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-3 shadow">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            /* Premium Content Area - Conditional based on user status */
+            <div className="flex flex-col items-center justify-center h-full w-full text-center p-6 bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50">
+              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-3 shadow transition-all duration-300">
+                <svg className={`w-8 h-8 ${isPremium ? 'text-orange-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <p className="text-sm font-bold text-gray-700 uppercase">Imagen Premium</p>
-              <div className="px-4 py-1.5 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-bold rounded-full mt-2">
-                ✨ Desbloquear
-              </div>
+
+              {isPremium ? (
+                <>
+                  <p className="text-sm font-bold text-gray-700 uppercase mb-3">Tu suscripción Pro incluye imágenes</p>
+                  <button
+                    onClick={handleGenerateClick}
+                    disabled={isGeneratingImage}
+                    className="group relative inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-bold rounded-full shadow-lg hover:shadow-orange-200/50 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:cursor-wait"
+                  >
+                    {isGeneratingImage ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Generando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✨ Generar imagen</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-gray-700 uppercase mb-3 text-balance">Imagen Premium</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onShowPremiumInfo) onShowPremiumInfo();
+                    }}
+                    className="px-6 py-2 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-500 hover:to-amber-600 transition-all duration-300 shadow-md"
+                  >
+                    ✨ Desbloquear
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -179,45 +231,63 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
             </ul>
           </div>
 
-          {/* Botones de Acción */}
-          <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto">
-            {onToggleFavorite && (
-              <button
-                onClick={handleFavoriteClick}
-                className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-sm transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 ${
-                  isFavorite
-                    ? 'bg-red-500 text-white hover:bg-red-600'
+          {/* Botones de Acción - Reorganizados para Free/Premium */}
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 mt-auto">
+            
+            {/* Botón Guardar - Siempre visible */}
+            <button
+              onClick={handleFavoriteClick}
+              disabled={isSaving}
+              className={`flex-1 min-w-[100px] py-2.5 px-4 rounded-xl font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-2 ${
+                isSaving
+                  ? 'bg-gray-100 text-gray-400 cursor-wait'
+                  : isFavorite
+                    ? 'bg-red-500 text-white hover:bg-red-600 hover:shadow-md'
                     : !canAddToFavorites
-                      ? 'bg-gradient-to-r from-orange-400 to-amber-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                aria-pressed={isFavorite}
-              >
-                {!isFavorite && !canAddToFavorites ? (
-                  <><span>✨</span><span>Premium</span></>
-                ) : (
-                  <>
-                    <Heart size={16} className={isFavorite ? 'fill-white' : ''} />
-                    <span>{isFavorite ? 'Guardada' : 'Guardar'}</span>
-                  </>
-                )}
-              </button>
-            )}
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-70 border border-gray-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
+              }`}
+              aria-pressed={isFavorite}
+              aria-label={!canAddToFavorites && !isFavorite ? 'Límite de recetas alcanzado - Actualiza a Premium' : isFavorite ? 'Quitar de guardadas' : 'Guardar receta'}
+            >
+              {/* Loading spinner */}
+              {isSaving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Guardando...</span>
+                </>
+              ) : !canAddToFavorites && !isFavorite ? (
+                /* Candado cuando está bloqueado */
+                <>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>Límite alcanzado</span>
+                </>
+              ) : (
+                <>
+                  <Heart size={16} className={isFavorite ? 'fill-white' : ''} />
+                  <span>{isFavorite ? 'Guardada' : 'Guardar'}</span>
+                </>
+              )}
+            </button>
 
+            {/* Botón Eliminar - Solo si ya es favorito */}
             {isFavorite && onDeleteFavorite && (
               <button
                 onClick={(e) => { e.stopPropagation(); onDeleteFavorite(recipe); }}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-white text-red-600 border border-red-200 font-bold text-sm transition-all shadow-sm hover:shadow-md hover:bg-red-50 flex items-center justify-center gap-2"
+                className="flex-1 min-w-[100px] py-2.5 px-4 rounded-xl bg-white text-red-600 border border-red-200 font-bold text-sm transition-all shadow-sm hover:shadow-md hover:bg-red-50 flex items-center justify-center gap-2"
               >
                 <Trash2 size={16} />
                 <span>Eliminar</span>
               </button>
             )}
 
+            {/* Botón WhatsApp - Siempre visible y funcional */}
             <button
               onClick={handleWhatsAppShare}
               disabled={isSharing}
-              className={`flex-1 py-2.5 px-4 rounded-xl bg-[#25D366] text-white font-bold text-sm transition-all shadow-sm hover:shadow-md hover:bg-[#20ba5a] flex items-center justify-center gap-2 ${isSharing ? 'opacity-75' : ''}`}
+              className={`flex-1 min-w-[100px] py-2.5 px-4 rounded-xl bg-[#25D366] text-white font-bold text-sm transition-all shadow-sm hover:shadow-md hover:bg-[#20ba5a] flex items-center justify-center gap-2 ${isSharing ? 'opacity-75' : ''}`}
             >
               {isSharing ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -228,7 +298,29 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
               )}
               <span>{isSharing ? '...' : 'WhatsApp'}</span>
             </button>
+            {/* Botón Premium - Invitación para usuarios FREE */}
+            {!isPremium && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Usa onShowPremiumInfo para mostrar beneficios (invitación)
+                  if (onShowPremiumInfo) onShowPremiumInfo();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-sm transition-all shadow-md hover:shadow-xl hover:from-orange-600 hover:to-amber-600 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>✨</span>
+                <span>Ser Chef Pro</span>
+              </button>
+            )}
           </div>
+          
+          {/* Error Message Feedback */}
+          {saveError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 animate-shake">
+              <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+              <p className="text-xs text-red-600 font-medium">{saveError}</p>
+            </div>
+          )}
         </div>
       </div>
 
