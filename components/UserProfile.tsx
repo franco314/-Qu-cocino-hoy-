@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, User as UserIcon, Crown } from 'lucide-react';
+import { LogOut, User as UserIcon, Crown, XCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface UserProfileProps {
@@ -8,8 +8,11 @@ interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, isHeroMode = false }) => {
-  const { user, signOut, isPremium } = useAuth();
+  const { user, signOut, isPremium, cancelSubscription } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -30,6 +33,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, is
       setIsOpen(false);
     } catch (error) {
       console.error('Sign out failed:', error);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      await cancelSubscription();
+      setShowCancelConfirm(false);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Cancel subscription failed:', error);
+      setCancelError('No se pudo cancelar la suscripción. Intentá de nuevo.');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -74,11 +93,62 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, is
 
           {/* Premium Badge - Always visible */}
           {isPremium ? (
-            <div className="w-full">
+            <div className="w-full space-y-2">
               <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 rounded-lg border border-orange-500/30">
                 <Crown size={13} className="text-orange-600" />
                 <span className="text-sm font-semibold text-orange-800">Plan Chef Pro Activo</span>
               </div>
+
+              {/* Cancel Subscription Section */}
+              {!showCancelConfirm ? (
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full px-4 py-2 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center gap-1.5 transition-colors rounded-lg"
+                >
+                  <XCircle size={12} />
+                  Cancelar suscripción
+                </button>
+              ) : (
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200 space-y-2">
+                  <p className="text-xs text-red-800 text-center font-medium">
+                    ¿Seguro que querés cancelar tu suscripción?
+                  </p>
+                  <p className="text-[10px] text-red-600 text-center">
+                    Perderás acceso a las imágenes de recetas y otras funciones premium.
+                  </p>
+                  {cancelError && (
+                    <p className="text-[10px] text-red-700 text-center bg-red-100 p-1 rounded">
+                      {cancelError}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowCancelConfirm(false);
+                        setCancelError(null);
+                      }}
+                      disabled={isCancelling}
+                      className="flex-1 px-2 py-1.5 text-xs text-gray-600 bg-white hover:bg-gray-100 rounded border border-gray-300 transition-colors disabled:opacity-50"
+                    >
+                      Volver
+                    </button>
+                    <button
+                      onClick={handleCancelSubscription}
+                      disabled={isCancelling}
+                      className="flex-1 px-2 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Cancelando...
+                        </>
+                      ) : (
+                        'Sí, cancelar'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <button

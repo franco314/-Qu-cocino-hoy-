@@ -544,6 +544,106 @@ interface RawGeminiRecipe {
   };
 }
 
+// ==========================================
+// IMAGE QUOTA SYSTEM
+// ==========================================
+
+/**
+ * Daily image limits by plan type
+ */
+const IMAGE_LIMITS = {
+  monthly: 4,
+  yearly: 7,
+};
+
+/**
+ * Gets today's date in DD-MM-YYYY format for quota tracking
+ */
+const getTodayDateKey = (): string => {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const year = now.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+/**
+ * Checks if user has remaining image quota and returns current usage info
+ */
+const checkImageQuota = async (
+  userId: string
+): Promise<{
+  canGenerate: boolean;
+  currentCount: number;
+  limit: number;
+  planType: string;
+}> => {
+  const todayKey = getTodayDateKey();
+
+  // Get user's subscription to determine plan type
+  const subscriptionDoc = await db.collection("subscriptions").doc(userId).get();
+
+  if (!subscriptionDoc.exists) {
+    logger.warn(`⚠️ [checkImageQuota] No subscription found for user ${userId}`);
+    return {canGenerate: false, currentCount: 0, limit: 0, planType: "none"};
+  }
+
+  const subscriptionData = subscriptionDoc.data();
+  const planType = subscriptionData?.planType || "monthly";
+  const limit = IMAGE_LIMITS[planType as keyof typeof IMAGE_LIMITS] || IMAGE_LIMITS.monthly;
+
+  logger.info(`📊 [checkImageQuota] Usuario ${userId}: plan=${planType}, límite=${limit}`);
+
+  // Get today's usage from user document
+  const userDoc = await db.collection("users").doc(userId).get();
+  const userData = userDoc.exists ? userDoc.data() : null;
+
+  const dailyImageUsage = userData?.dailyImageUsage || {date: "", count: 0};
+
+  // If date doesn't match today, reset counter
+  if (dailyImageUsage.date !== todayKey) {
+    logger.info(`🔄 [checkImageQuota] Nuevo día detectado, reseteando contador para ${userId}`);
+    return {canGenerate: true, currentCount: 0, limit, planType};
+  }
+
+  const currentCount = dailyImageUsage.count || 0;
+  const canGenerate = currentCount < limit;
+
+  logger.info(`📈 [checkImageQuota] Usuario ${userId}: ${currentCount}/${limit} imágenes hoy`);
+
+  return {canGenerate, currentCount, limit, planType};
+};
+
+/**
+ * Increments the daily image counter for a user
+ */
+const incrementImageCounter = async (userId: string): Promise<void> => {
+  const todayKey = getTodayDateKey();
+
+  // Get current usage
+  const userDoc = await db.collection("users").doc(userId).get();
+  const userData = userDoc.exists ? userDoc.data() : null;
+  const dailyImageUsage = userData?.dailyImageUsage || {date: "", count: 0};
+
+  // If it's a new day, start fresh; otherwise increment
+  const newCount = dailyImageUsage.date === todayKey
+    ? (dailyImageUsage.count || 0) + 1
+    : 1;
+
+  await db.collection("users").doc(userId).set({
+    dailyImageUsage: {
+      date: todayKey,
+      count: newCount,
+    },
+  }, {merge: true});
+
+  logger.info(`✅ [incrementImageCounter] Usuario ${userId}: contador actualizado a ${newCount}`);
+};
+
+// ==========================================
+// RECIPE GENERATION FUNCTIONS
+// ==========================================
+
 export const generateRecipes = onCall(
   {
     secrets: [geminiApiKey],
@@ -735,10 +835,32 @@ OTRAS REGLAS:
         };
 
         // Generate image only if isPremium AND shouldGenerateImage are both true
+        // Also check daily quota if user is authenticated
         if (isPremium === true && shouldGenerateImage !== false) {
-          const imageResult = await generateRecipeImage(ai, recipe.title);
-          if (imageResult.imageUrl) {
-            recipe.imageUrl = imageResult.imageUrl;
+          const userId = request.auth?.uid;
+
+          if (userId) {
+            // Check quota before generating
+            const quota = await checkImageQuota(userId);
+
+            if (quota.canGenerate) {
+              const imageResult = await generateRecipeImage(ai, recipe.title);
+              if (imageResult.imageUrl) {
+                recipe.imageUrl = imageResult.imageUrl;
+                // Increment counter after successful generation
+                await incrementImageCounter(userId);
+                logger.info(`🖼️ [generateRecipes] Imagen generada para usuario ${userId} (${quota.currentCount + 1}/${quota.limit})`);
+              }
+            } else {
+              logger.info(`🚫 [generateRecipes] Usuario ${userId} alcanzó límite de imágenes (${quota.currentCount}/${quota.limit})`);
+            }
+          } else {
+            // No authenticated user, generate without quota check (shouldn't happen in production)
+            logger.warn("⚠️ [generateRecipes] Usuario premium sin autenticación, generando sin cuota");
+            const imageResult = await generateRecipeImage(ai, recipe.title);
+            if (imageResult.imageUrl) {
+              recipe.imageUrl = imageResult.imageUrl;
+            }
           }
         }
 
@@ -760,20 +882,31 @@ OTRAS REGLAS:
 /**
  * Generates an image for a specific recipe title.
  * Exclusive for Premium users to use "on-demand".
+ * Includes daily quota limits based on subscription plan.
  */
 export const generateSingleRecipeImage = onCall(
   {
     secrets: [geminiApiKey],
-    cors: true, // Forzar CORS para evitar bloqueos desde localhost
+    cors: true,
     maxInstances: 10
   },
   async (request) => {
     logger.info("🎨 [generateSingleRecipeImage] Iniciando generación bajo demanda...");
-    
+
     try {
+      // Verify user is authenticated
+      if (!request.auth) {
+        logger.warn("❌ [generateSingleRecipeImage] Usuario no autenticado");
+        throw new HttpsError(
+          "unauthenticated",
+          "Debes iniciar sesión para generar imágenes"
+        );
+      }
+
+      const userId = request.auth.uid;
       const {title, isPremium} = request.data;
-      
-      logger.info(`📋 [generateSingleRecipeImage] Título: ${title}, Premium: ${isPremium}`);
+
+      logger.info(`📋 [generateSingleRecipeImage] Usuario: ${userId}, Título: ${title}, Premium: ${isPremium}`);
 
       if (!isPremium) {
         logger.warn("❌ [generateSingleRecipeImage] Intento de acceso no premium");
@@ -791,13 +924,26 @@ export const generateSingleRecipeImage = onCall(
         );
       }
 
+      // Check daily quota BEFORE calling Vertex AI
+      const quota = await checkImageQuota(userId);
+
+      if (!quota.canGenerate) {
+        logger.warn(`🚫 [generateSingleRecipeImage] Usuario ${userId} alcanzó el límite diario (${quota.currentCount}/${quota.limit})`);
+        throw new HttpsError(
+          "resource-exhausted",
+          "Has alcanzado el límite de imágenes diarias de tu plan Chef Pro. Mañana tendrás nuevas imágenes disponibles."
+        );
+      }
+
+      logger.info(`✅ [generateSingleRecipeImage] Cuota verificada: ${quota.currentCount}/${quota.limit} (plan ${quota.planType})`);
+
       const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
 
-      logger.info("📡 [generateSingleRecipeImage] Llamando a Gemini Image Generation...");
+      logger.info("📡 [generateSingleRecipeImage] Llamando a Vertex AI (Imagen 3 Fast)...");
       const imageResult = await generateRecipeImage(ai, title);
 
       if (imageResult.error) {
-        logger.error(`❌ [generateSingleRecipeImage] Error de Gemini: ${imageResult.error}`);
+        logger.error(`❌ [generateSingleRecipeImage] Error de Vertex AI: ${imageResult.error}`);
         throw new HttpsError(
           "internal",
           `No se pudo generar la imagen: ${imageResult.error}`
@@ -805,12 +951,15 @@ export const generateSingleRecipeImage = onCall(
       }
 
       if (!imageResult.imageUrl) {
-        logger.error("❌ [generateSingleRecipeImage] Gemini no devolvió ninguna imagen");
+        logger.error("❌ [generateSingleRecipeImage] Vertex AI no devolvió ninguna imagen");
         throw new HttpsError(
           "internal",
           "No se pudo generar la imagen en este momento. Intentá nuevamente."
         );
       }
+
+      // Increment counter ONLY after successful generation
+      await incrementImageCounter(userId);
 
       logger.info("✅ [generateSingleRecipeImage] Imagen generada exitosamente");
       return {imageUrl: imageResult.imageUrl};

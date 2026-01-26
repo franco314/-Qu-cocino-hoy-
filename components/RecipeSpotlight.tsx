@@ -179,7 +179,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
                   {isPremium ? (
                     <p className="text-base font-bold text-orange-600">{recipe.macros.protein}g</p>
                   ) : (
-                    <p className="text-base font-bold text-gray-300 blur-[2px]">{recipe.macros.protein}g</p>
+                    <p className="text-base font-bold text-gray-300 blur-[6px]">{recipe.macros.protein}g</p>
                   )}
                 </div>
                 <div className="w-px h-8 bg-gray-200"></div>
@@ -188,7 +188,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
                   {isPremium ? (
                     <p className="text-base font-bold text-orange-600">{recipe.macros.carbs}g</p>
                   ) : (
-                    <p className="text-base font-bold text-gray-300 blur-[2px]">{recipe.macros.carbs}g</p>
+                    <p className="text-base font-bold text-gray-300 blur-[6px]">{recipe.macros.carbs}g</p>
                   )}
                 </div>
                 <div className="w-px h-8 bg-gray-200"></div>
@@ -197,7 +197,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
                   {isPremium ? (
                     <p className="text-base font-bold text-orange-600">{recipe.macros.fat}g</p>
                   ) : (
-                    <p className="text-base font-bold text-gray-300 blur-[2px]">{recipe.macros.fat}g</p>
+                    <p className="text-base font-bold text-gray-300 blur-[6px]">{recipe.macros.fat}g</p>
                   )}
                 </div>
               </div>
