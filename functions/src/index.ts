@@ -469,37 +469,56 @@ interface Recipe {
   };
 }
 
-// Helper function to generate an image for a recipe
+// Helper function to generate an image for a recipe using Imagen 3 Fast via Vertex AI
 const generateRecipeImage = async (
-  ai: GoogleGenAI,
+  _ai: GoogleGenAI, // No usado - mantenemos el parámetro por compatibilidad
   title: string
-): Promise<string | undefined> => {
+): Promise<{imageUrl?: string; error?: string}> => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: {
-        parts: [{
-          // Prompt optimizado para evitar zoom
-          text: `Professional food photography of a ${title}, full plate visible, wide shot, high angle, showing the entire dish and side dishes. Clean composition, sharp focus on all food, cinematic lighting, no text, no watermarks.`,
-        }],
-      },
+    logger.info(`🖼️ [generateRecipeImage] Generando imagen para: "${title}" con Imagen 3 Fast (Vertex AI)`);
+
+    // Obtener project ID de Firebase
+    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    if (!projectId) {
+      logger.error("❌ [generateRecipeImage] No se pudo obtener el Project ID");
+      return {error: "Project ID no disponible"};
+    }
+
+    // Crear cliente Vertex AI con API v1 (requerido para imagen-3.0-fast-generate-001)
+    const vertexAI = new GoogleGenAI({
+      vertexai: true,
+      project: projectId,
+      location: "us-central1",
+      apiVersion: "v1",
+    });
+
+    // Usar Imagen 3 Fast (estable, 50% más barato, 3-6 seg)
+    const response = await vertexAI.models.generateImages({
+      model: "imagen-3.0-fast-generate-001",
+      prompt: `Professional food photography of: ${title}. Complete dish on a plate, wide shot, high angle view, natural lighting, appetizing presentation, no text overlays, photorealistic.`,
       config: {
-        imageConfig: {
-          aspectRatio: "4:3",
-        },
+        numberOfImages: 1,
+        aspectRatio: "1:1",
       },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    logger.info(`🖼️ [generateRecipeImage] Respuesta recibida, procesando...`);
+
+    if (response.generatedImages && response.generatedImages.length > 0) {
+      const imageData = response.generatedImages[0].image?.imageBytes;
+      if (imageData) {
+        logger.info(`✅ [generateRecipeImage] Imagen generada exitosamente con Imagen 3 Fast`);
+        return {imageUrl: `data:image/png;base64,${imageData}`};
       }
     }
-  } catch (error) {
-    logger.warn(`No se pudo generar la imagen para "${title}":`, error);
-    return undefined;
+
+    logger.warn(`⚠️ [generateRecipeImage] No se encontró imagen en la respuesta`);
+    return {error: "La API no devolvió una imagen"};
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`❌ [generateRecipeImage] Error: ${errorMessage}`, error);
+    return {error: errorMessage};
   }
-  return undefined;
 };
 
 interface DietFilters {
@@ -567,7 +586,7 @@ export const generateRecipes = onCall(
       }
 
       const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
-      // Gemini 3 Flash Preview: modelo más avanzado con razonamiento Pro, velocidad optimizada y precisión superior
+      // Gemini 3 Flash Preview: modelo más avanzado con razonamiento Pro
       const modelId = "gemini-3-flash-preview";
 
       const ingredientsList = ingredients.join(", ");
@@ -600,7 +619,7 @@ Generá una receta rica y simple.
 </TAREA>
 `;
 
-      // Generate Text Recipes using Gemini 3 Flash with Pro-level reasoning
+      // Generate Text Recipes using Gemini 3 Flash Preview
       const response = await ai.models.generateContent({
         model: modelId,
         contents: prompt,
@@ -717,8 +736,10 @@ OTRAS REGLAS:
 
         // Generate image only if isPremium AND shouldGenerateImage are both true
         if (isPremium === true && shouldGenerateImage !== false) {
-          const imageUrl = await generateRecipeImage(ai, recipe.title);
-          recipe.imageUrl = imageUrl;
+          const imageResult = await generateRecipeImage(ai, recipe.title);
+          if (imageResult.imageUrl) {
+            recipe.imageUrl = imageResult.imageUrl;
+          }
         }
 
         // Always return an array with one recipe for frontend compatibility
@@ -771,11 +792,19 @@ export const generateSingleRecipeImage = onCall(
       }
 
       const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
-      
-      logger.info("📡 [generateSingleRecipeImage] Llamando a Gemini Flash Image...");
-      const imageUrl = await generateRecipeImage(ai, title);
 
-      if (!imageUrl) {
+      logger.info("📡 [generateSingleRecipeImage] Llamando a Gemini Image Generation...");
+      const imageResult = await generateRecipeImage(ai, title);
+
+      if (imageResult.error) {
+        logger.error(`❌ [generateSingleRecipeImage] Error de Gemini: ${imageResult.error}`);
+        throw new HttpsError(
+          "internal",
+          `No se pudo generar la imagen: ${imageResult.error}`
+        );
+      }
+
+      if (!imageResult.imageUrl) {
         logger.error("❌ [generateSingleRecipeImage] Gemini no devolvió ninguna imagen");
         throw new HttpsError(
           "internal",
@@ -784,7 +813,7 @@ export const generateSingleRecipeImage = onCall(
       }
 
       logger.info("✅ [generateSingleRecipeImage] Imagen generada exitosamente");
-      return {imageUrl};
+      return {imageUrl: imageResult.imageUrl};
     } catch (error: unknown) {
       logger.error("💥 [generateSingleRecipeImage] Error crítico:", error);
       if (error instanceof HttpsError) throw error;
