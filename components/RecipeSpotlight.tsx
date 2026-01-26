@@ -111,7 +111,6 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
 
               {isPremium ? (
                 <>
-                  <p className="text-sm font-bold text-gray-700 uppercase mb-3">Tu suscripción Pro incluye imágenes</p>
                   <button
                     onClick={handleGenerateClick}
                     disabled={isGeneratingImage}

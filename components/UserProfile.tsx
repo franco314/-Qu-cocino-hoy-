@@ -70,14 +70,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, is
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-white/30 py-1 z-50 animate-fade-in">
+        <div className="absolute right-0 mt-2 min-w-[200px] bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-white/30 p-2 z-50 animate-fade-in flex flex-col">
 
           {/* Premium Badge - Always visible */}
           {isPremium ? (
-            <div className="px-3 py-2">
-              <div className="flex items-center gap-2 px-2 py-1.5 bg-orange-500/10 rounded-lg border border-orange-500/30">
+            <div className="w-full">
+              <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 rounded-lg border border-orange-500/30">
                 <Crown size={13} className="text-orange-600" />
-                <span className="text-xs font-semibold text-orange-800">Plan Chef Pro Activo</span>
+                <span className="text-sm font-semibold text-orange-800">Plan Chef Pro Activo</span>
               </div>
             </div>
           ) : (
@@ -86,22 +86,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, is
                 setIsOpen(false);
                 onShowPremiumModal?.();
               }}
-              className="w-full px-3 py-2 text-left flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-xs rounded-lg mx-2 shadow-sm hover:shadow-md hover:from-orange-600 hover:to-orange-700 transition-all duration-300"
+              className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold text-sm rounded-lg shadow-sm hover:shadow-md hover:from-orange-600 hover:to-orange-700 hover:scale-[1.02] transition-all duration-300"
             >
-              <Crown size={13} />
+              <Crown size={14} />
               <span>Pasarme a Chef Pro</span>
             </button>
           )}
 
           {/* Divider */}
-          <div className="h-px bg-white/20 my-1" />
+          <div className="h-px bg-gray-200 my-2" />
 
           {/* Logout Button */}
           <button
             onClick={handleSignOut}
-            className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100/50 flex items-center gap-2 transition-colors rounded-lg mx-2 my-1"
+            className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100/50 flex items-center gap-2 transition-colors rounded-lg"
           >
-            <LogOut size={13} />
+            <LogOut size={14} />
             Cerrar sesión
           </button>
         </div>
