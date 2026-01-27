@@ -501,46 +501,30 @@ interface Recipe {
   };
 }
 
-// Helper function to generate an image for a recipe using Imagen 3 Fast via Vertex AI
+// Helper function to generate an image for a recipe using Gemini Flash Image
 const generateRecipeImage = async (
-  _ai: GoogleGenAI, // No usado - mantenemos el parámetro por compatibilidad
+  ai: GoogleGenAI,
   title: string
 ): Promise<{imageUrl?: string; error?: string}> => {
   try {
-    logger.info(`🖼️ [generateRecipeImage] Generando imagen para: "${title}" con Imagen 3 Fast (Vertex AI)`);
+    logger.info(`🖼️ [generateRecipeImage] Generando imagen para: "${title}" con Gemini Flash Image`);
 
-    // Obtener project ID de Firebase
-    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-    if (!projectId) {
-      logger.error("❌ [generateRecipeImage] No se pudo obtener el Project ID");
-      return {error: "Project ID no disponible"};
-    }
-
-    // Crear cliente Vertex AI con API v1 (requerido para imagen-3.0-fast-generate-001)
-    const vertexAI = new GoogleGenAI({
-      vertexai: true,
-      project: projectId,
-      location: "us-central1",
-      apiVersion: "v1",
-    });
-
-    // Usar Imagen 3 Fast (estable, 50% más barato, 3-6 seg)
-    const response = await vertexAI.models.generateImages({
-      model: "imagen-3.0-fast-generate-001",
-      prompt: `Professional food photography of: ${title}. Complete dish on a plate, wide shot, high angle view, natural lighting, appetizing presentation, no text overlays, photorealistic.`,
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-image",
+      contents: {
+        parts: [{
+          text: `Professional food photography of a ${title}, full plate visible, wide shot, high angle, showing the entire dish and side dishes. Clean composition, sharp focus on all food, cinematic lighting, no text, no watermarks.`,
+        }],
+      },
       config: {
-        numberOfImages: 1,
-        aspectRatio: "1:1",
+        responseModalities: ["TEXT", "IMAGE"],
       },
     });
 
-    logger.info(`🖼️ [generateRecipeImage] Respuesta recibida, procesando...`);
-
-    if (response.generatedImages && response.generatedImages.length > 0) {
-      const imageData = response.generatedImages[0].image?.imageBytes;
-      if (imageData) {
-        logger.info(`✅ [generateRecipeImage] Imagen generada exitosamente con Imagen 3 Fast`);
-        return {imageUrl: `data:image/png;base64,${imageData}`};
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        logger.info(`✅ [generateRecipeImage] Imagen generada exitosamente con Gemini Flash Image`);
+        return {imageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`};
       }
     }
 
@@ -584,8 +568,8 @@ interface RawGeminiRecipe {
  * Daily image limits by plan type
  */
 const IMAGE_LIMITS = {
-  monthly: 4,
-  yearly: 7,
+  monthly: 9999, // TODO: volver a 4 en producción
+  yearly: 9999, // TODO: volver a 7 en producción
 };
 
 /**
@@ -971,7 +955,7 @@ export const generateSingleRecipeImage = onCall(
 
       const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
 
-      logger.info("📡 [generateSingleRecipeImage] Llamando a Vertex AI (Imagen 3 Fast)...");
+      logger.info("📡 [generateSingleRecipeImage] Llamando a Gemini Flash Image...");
       const imageResult = await generateRecipeImage(ai, title);
 
       if (imageResult.error) {
