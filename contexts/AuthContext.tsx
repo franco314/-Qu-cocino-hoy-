@@ -183,9 +183,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await cancelSubscriptionFn();
       setIsPremium(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cancelling subscription:', error);
-      throw error;
+
+      let errorMessage = 'No se pudo cancelar la suscripción. Intenta nuevamente.';
+
+      // Handle Firebase Cloud Function errors
+      if (error && typeof error === 'object') {
+        const firebaseError = error as any;
+        const errorCode = firebaseError.code || '';
+        const errorMsg = firebaseError.message || '';
+
+        console.error('   Code:', firebaseError.code);
+        console.error('   Message:', firebaseError.message);
+        console.error('   Details:', firebaseError.details);
+
+        // Extract the actual error message from Firebase error
+        // Firebase Functions errors format: "Error message (functions/error-code)"
+        if (errorMsg) {
+          const match = errorMsg.match(/^(.+?)(?:\s*\(functions\/|$)/);
+          errorMessage = match ? match[1] : errorMsg;
+        }
+
+        // Fallback for specific error codes
+        if (errorCode === 'functions/not-found') {
+          errorMessage = 'No se encontró una suscripción activa para cancelar';
+        } else if (errorCode === 'functions/unauthenticated') {
+          errorMessage = 'Debes iniciar sesión para cancelar tu suscripción';
+        } else if (errorCode === 'functions/internal') {
+          errorMessage = 'Error al cancelar la suscripción en Mercado Pago. Por favor intenta más tarde.';
+        }
+      }
+
+      // Re-throw with the detailed message for the UI to display
+      throw new Error(errorMessage);
     }
   }, [user]);
 

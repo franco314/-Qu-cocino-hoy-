@@ -46,7 +46,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onShowPremiumModal, is
       setIsOpen(false);
     } catch (error) {
       console.error('Cancel subscription failed:', error);
-      setCancelError('No se pudo cancelar la suscripción. Intentá de nuevo.');
+      // Show the specific error message from the backend via AuthContext
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'No se pudo cancelar la suscripción. Intenta nuevamente.';
+      setCancelError(errorMessage);
     } finally {
       setIsCancelling(false);
     }

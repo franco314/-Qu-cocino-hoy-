@@ -225,29 +225,50 @@ export const HomePage = () => {
 
   const handleGenerateImage = async (recipe: Recipe) => {
     if (!isPremium || !user) return;
-    
+
     try {
       // 1. Generate image Base64 from Gemini
       const imageUrlBase64 = await generateSingleImage(recipe.title, isPremium);
-      
+
       // 2. Persist to Firebase Storage
-      const permanentUrl = await storageService.persistRecipeImage(user.uid, recipe.id, imageUrlBase64);
-      
+      const permanentUrl = await storageService.persistRecipeImage(
+        user.uid,
+        recipe.id,
+        imageUrlBase64
+      );
+
       // 3. Update local recipes state
-      setRecipes(prev => prev.map(r => r.id === recipe.id ? { ...r, imageUrl: permanentUrl } : r));
-      
+      setRecipes((prev) =>
+        prev.map((r) =>
+          r.id === recipe.id ? { ...r, imageUrl: permanentUrl } : r
+        )
+      );
+
       // 4. If it's a favorite, update Firestore and local favorites state
-      const isFav = favorites.some(f => f.id === recipe.id);
+      const isFav = favorites.some((f) => f.id === recipe.id);
       if (isFav) {
-        const favoriteRef = doc(db, 'users', user.uid, 'favorites', recipe.id);
+        const favoriteRef = doc(db, "users", user.uid, "favorites", recipe.id);
         await updateDoc(favoriteRef, { imageUrl: permanentUrl });
-        setFavorites(prev => prev.map(f => f.id === recipe.id ? { ...f, imageUrl: permanentUrl } : f));
+        setFavorites((prev) =>
+          prev.map((f) =>
+            f.id === recipe.id ? { ...f, imageUrl: permanentUrl } : f
+          )
+        );
       }
     } catch (e: any) {
       console.error("Error generating image on demand:", e);
-      setSaveError(`Error al generar imagen: ${e.message}`);
-      setTimeout(() => setSaveError(null), 5000);
-      throw e;
+
+      // Extract error message - the generateSingleImage service already
+      // returns user-friendly messages from the backend
+      const errorMessage =
+        e instanceof Error ? e.message : "No se pudo generar la imagen";
+
+      setSaveError(errorMessage);
+      // Don't auto-dismiss if it's a quota message (user needs to know when they can try again)
+      const isQuotaMessage = errorMessage.includes("límite");
+      if (!isQuotaMessage) {
+        setTimeout(() => setSaveError(null), 5000);
+      }
     }
   };
 

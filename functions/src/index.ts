@@ -394,11 +394,13 @@ export const cancelSubscription = onCall(
       }
 
       const userId = request.auth.uid;
+      logger.info(`[cancelSubscription] Starting for user ${userId}`);
 
       // Get the subscription ID from Firestore
       const subDoc = await db.collection("subscriptions").doc(userId).get();
 
       if (!subDoc.exists || !subDoc.data()?.mpId) {
+        logger.warn(`[cancelSubscription] No subscription found for user ${userId}`);
         throw new HttpsError(
           "not-found",
           "No se encontró una suscripción activa"
@@ -406,22 +408,42 @@ export const cancelSubscription = onCall(
       }
 
       const subscriptionId = subDoc.data()?.mpId;
+      const currentStatus = subDoc.data()?.status;
+      logger.info(`[cancelSubscription] Found subscription ${subscriptionId}, status: ${currentStatus}`);
 
-      // Cancel the subscription in Mercado Pago
-      const client = new MercadoPagoConfig({
-        accessToken: mercadoPagoAccessToken.value(),
-      });
+      // Try to cancel in Mercado Pago, but don't fail if it doesn't work
+      let mpCancelled = false;
+      let mpError: string | null = null;
 
-      const preApproval = new PreApproval(client);
-      await preApproval.update({
-        id: subscriptionId,
-        body: {status: "cancelled"},
-      });
+      try {
+        const client = new MercadoPagoConfig({
+          accessToken: mercadoPagoAccessToken.value(),
+        });
 
-      // Update Firestore
+        const preApproval = new PreApproval(client);
+        await preApproval.update({
+          id: subscriptionId,
+          body: {status: "cancelled"},
+        });
+        mpCancelled = true;
+        logger.info(`[cancelSubscription] Successfully cancelled in Mercado Pago`);
+      } catch (mpErr: any) {
+        // Log the MP error but continue - we'll still update Firestore
+        mpError = mpErr?.message || "Unknown MP error";
+        logger.warn(`[cancelSubscription] Mercado Pago cancellation failed: ${mpError}`);
+        logger.warn(`[cancelSubscription] Full MP error:`, mpErr);
+
+        // If the subscription is already cancelled or doesn't exist in MP, that's OK
+        // We still want to update our local DB
+      }
+
+      // Update Firestore regardless of MP result
+      // This ensures the user can "unsubscribe" even if MP has issues
       await db.collection("subscriptions").doc(userId).update({
         status: "cancelled",
         cancelledAt: new Date().toISOString(),
+        mpCancelled: mpCancelled,
+        mpError: mpError,
       });
 
       await db.collection("users").doc(userId).update({
@@ -429,19 +451,29 @@ export const cancelSubscription = onCall(
         premiumEndedAt: new Date().toISOString(),
       });
 
-      logger.info(`Subscription cancelled for user ${userId}`);
+      logger.info(`[cancelSubscription] Subscription cancelled for user ${userId} (MP: ${mpCancelled ? "yes" : "no"})`);
 
-      return {success: true};
+      return {
+        success: true,
+        mpCancelled: mpCancelled,
+        message: mpCancelled
+          ? "Suscripción cancelada exitosamente"
+          : "Suscripción cancelada localmente. Si tenés problemas con cobros futuros, contactanos.",
+      };
     } catch (error: unknown) {
-      logger.error("Error cancelling subscription:", error);
+      logger.error("[cancelSubscription] Error:", error);
 
       if (error instanceof HttpsError) {
         throw error;
       }
 
+      // Extract more details from the error
+      const errorMsg = error instanceof Error ? error.message : "Error desconocido";
+      logger.error(`[cancelSubscription] Unhandled error: ${errorMsg}`);
+
       throw new HttpsError(
         "internal",
-        "Error al cancelar la suscripción"
+        `Error al cancelar la suscripción: ${errorMsg}`
       );
     }
   }
