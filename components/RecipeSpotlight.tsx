@@ -9,6 +9,7 @@ interface RecipeSpotlightProps {
   onToggleFavorite?: (recipe: Recipe) => void;
   onDeleteFavorite?: (recipe: Recipe) => void;
   isPremium?: boolean;
+  isLoggedIn?: boolean;
   canAddToFavorites?: boolean;
   isSaving?: boolean; // Loading state for save button feedback
   saveError?: string | null; // Error message state
@@ -23,6 +24,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
   onToggleFavorite,
   onDeleteFavorite,
   isPremium = false,
+  isLoggedIn = false,
   canAddToFavorites = true,
   isSaving = false,
   saveError = null,
@@ -101,15 +103,15 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
               </div>
             </>
           ) : (
-            /* Premium Content Area - Conditional based on user status */
+            /* Image Generation Area - Available for logged-in users (Free: 3 gift images, Pro: 5/day) */
             <div className="flex flex-col items-center justify-center h-full w-full text-center p-6 bg-gradient-to-br from-gray-100 via-gray-50 to-orange-50">
               <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-3 shadow transition-all duration-300">
-                <svg className={`w-8 h-8 ${isPremium ? 'text-orange-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-8 h-8 ${isLoggedIn ? 'text-orange-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
 
-              {isPremium ? (
+              {isLoggedIn ? (
                 <>
                   <button
                     onClick={handleGenerateClick}
@@ -130,7 +132,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-bold text-gray-700 uppercase mb-3 text-balance">Imagen Premium</p>
+                  <p className="text-sm font-bold text-gray-700 uppercase mb-3 text-balance">Iniciá sesión para generar imágenes</p>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -138,7 +140,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
                     }}
                     className="px-6 py-2 bg-gradient-to-r from-orange-400 to-amber-500 text-white text-xs font-bold rounded-full hover:from-orange-500 hover:to-amber-600 transition-all duration-300 shadow-md"
                   >
-                    ✨ Desbloquear
+                    Iniciar sesión
                   </button>
                 </>
               )}
@@ -166,7 +168,7 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
             {recipe.title}
           </h1>
           
-          <p className="text-sm text-gray-600 leading-relaxed mb-3 line-clamp-2">
+          <p className="text-sm text-gray-600 leading-relaxed mb-3">
             {recipe.description}
           </p>
 
@@ -331,9 +333,9 @@ export const RecipeSpotlight: React.FC<RecipeSpotlightProps> = ({
           <ChefHat size={16} className="mr-2 text-orange-500" />
           Preparación ({instructions.length} pasos)
         </h2>
-        <ol className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+        <ol className="columns-1 md:columns-2 gap-3 text-sm text-gray-700">
           {instructions.map((step, i) => (
-            <li key={i} className="flex gap-3 bg-white p-3 rounded-xl border border-gray-100">
+            <li key={i} className="flex gap-3 bg-white p-3 rounded-xl border border-gray-100 break-inside-avoid mb-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold">
                 {i + 1}
               </span>

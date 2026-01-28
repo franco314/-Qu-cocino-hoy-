@@ -224,17 +224,22 @@ export const HomePage = () => {
   }, []);
 
   const handleGenerateImage = async (recipe: Recipe) => {
-    if (!isPremium || !user) return;
+    // User must be logged in to generate images (both Free and Pro)
+    if (!user) {
+      setSaveError("Debes iniciar sesión para generar imágenes");
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
 
     try {
-      // 1. Generate image Base64 from Gemini
-      const imageUrlBase64 = await generateSingleImage(recipe.title, isPremium);
+      // 1. Generate image Base64 from Gemini (works for both Free trial and Pro)
+      const result = await generateSingleImage(recipe.title);
 
       // 2. Persist to Firebase Storage
       const permanentUrl = await storageService.persistRecipeImage(
         user.uid,
         recipe.id,
-        imageUrlBase64
+        result.imageUrl
       );
 
       // 3. Update local recipes state
@@ -255,6 +260,17 @@ export const HomePage = () => {
           )
         );
       }
+
+      // 5. Show quota info for free users
+      if (result.quota?.isFreeTrial && result.quota.remaining >= 0) {
+        const remaining = result.quota.remaining;
+        if (remaining === 0) {
+          setSaveError(`¡Última imagen de regalo usada! Pasate a Chef Pro para tener 5 nuevas imágenes cada día.`);
+        } else {
+          setSaveError(`✨ Imagen generada. Te quedan ${remaining} de ${result.quota.limit} imágenes de regalo.`);
+          setTimeout(() => setSaveError(null), 4000);
+        }
+      }
     } catch (e: any) {
       console.error("Error generating image on demand:", e);
 
@@ -264,8 +280,8 @@ export const HomePage = () => {
         e instanceof Error ? e.message : "No se pudo generar la imagen";
 
       setSaveError(errorMessage);
-      // Don't auto-dismiss if it's a quota message (user needs to know when they can try again)
-      const isQuotaMessage = errorMessage.includes("límite");
+      // Don't auto-dismiss if it's a quota/exhausted message (user needs to know)
+      const isQuotaMessage = errorMessage.includes("límite") || errorMessage.includes("Agotaste");
       if (!isQuotaMessage) {
         setTimeout(() => setSaveError(null), 5000);
       }
@@ -559,7 +575,7 @@ export const HomePage = () => {
                     onToggleFavorite={handleToggleFavorite}
                     onDeleteFavorite={handleDeleteFavorite}
                     canAddToFavorites={canAddMoreFavorites(recipe.id)}
-                    isPremium={isPremium}
+                    isLoggedIn={!!user}
                     onGenerateImage={handleGenerateImage}
                   />
                 ))}
@@ -664,25 +680,25 @@ export const HomePage = () => {
                       <span>Sin TACC</span>
                     </button>
 
-                    {/* Generate Image Toggle - Premium feature */}
+                    {/* Generate Image Toggle - Available for logged-in users (Free: 3 gift images, Pro: 5/day) */}
                     <button
                       onClick={() => {
-                        if (!isPremium) {
+                        if (!user) {
                           openPremiumModal('home');
                         } else {
                           setWithImage(prev => !prev);
                         }
                       }}
                       className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
-                        !isPremium
+                        !user
                           ? 'bg-white/60 text-gray-400 hover:bg-white/80'
                           : withImage
                             ? 'bg-purple-500 text-white'
                             : 'bg-white/90 text-gray-700 hover:bg-white'
                       }`}
-                      title={!isPremium ? 'Disponible en Plan Chef Pro' : withImage ? 'Generar imagen del plato (activo)' : 'Generar imagen del plato (desactivado)'}
+                      title={!user ? 'Iniciá sesión para generar imágenes' : withImage ? 'Generar imagen del plato (activo)' : 'Generar imagen del plato (desactivado)'}
                     >
-                      {!isPremium && <Lock size={12} />}
+                      {!user && <Lock size={12} />}
                       <Image size={14} />
                       <span>Con imagen</span>
                     </button>
@@ -809,6 +825,7 @@ export const HomePage = () => {
                   onToggleFavorite={handleToggleFavorite}
                   onDeleteFavorite={handleDeleteFavorite}
                   isPremium={isPremium}
+                  isLoggedIn={!!user}
                   canAddToFavorites={canAddMoreFavorites(recipes[0].id)}
                   isSaving={isSaving}
                   saveError={saveError}

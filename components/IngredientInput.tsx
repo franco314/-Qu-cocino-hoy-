@@ -10,9 +10,8 @@ interface IngredientInputProps {
 }
 
 const COMMON_INGREDIENTS = [
-  "Huevos", "Cebolla", "Tomate", "Arroz", "Pollo", 
-  "Papas", "Leche", "Queso", "Fideos", "Aceite", 
-  "Ajo", "Zanahoria", "Limón", "Harina", "Manteca"
+  "Huevos", "Cebolla", "Tomate", "Arroz", "Pollo",
+  "Papas", "Leche", "Queso", "Fideos", "Aceite", "Limón"
 ];
 
 export const IngredientInput: React.FC<IngredientInputProps> = ({ 
@@ -156,7 +155,7 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
       {/* Quick Add Suggestions - Floating chips */}
       <div className="mt-5">
         <p className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1 drop-shadow-sm" id="quick-add-label">
-          Agregá rápido los básicos
+          Atajos
         </p>
         <div
           className="flex flex-wrap gap-2 max-h-[180px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide md:max-h-none md:overflow-visible md:overscroll-auto"
@@ -168,14 +167,13 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
             return (
               <button
                 key={ing}
-                onClick={() => handleQuickAdd(ing)}
-                disabled={isSelected}
+                onClick={() => isSelected ? onRemove(ing) : handleQuickAdd(ing)}
                 aria-pressed={isSelected}
-                aria-label={isSelected ? `${ing} agregado` : `Agregar ${ing}`}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20 shadow-sm md:backdrop-blur-sm
+                aria-label={isSelected ? `Eliminar ${ing}` : `Agregar ${ing}`}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20 shadow-sm md:backdrop-blur-sm active:scale-95
                   ${isSelected
-                    ? 'bg-green-500/90 text-white cursor-default'
-                    : 'bg-white/95 md:bg-white/80 text-gray-700 hover:bg-white hover:shadow-md active:scale-95'
+                    ? 'bg-green-500/90 text-white hover:bg-green-600'
+                    : 'bg-white/95 md:bg-white/80 text-gray-700 hover:bg-white hover:shadow-md'
                   }`}
               >
                 {isSelected ? <X size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}

@@ -10,18 +10,18 @@ interface RecipeCardProps {
   onToggleFavorite: (recipe: Recipe) => void;
   onDeleteFavorite?: (recipe: Recipe) => void;
   canAddToFavorites?: boolean;
-  isPremium?: boolean;
+  isLoggedIn?: boolean;
   onGenerateImage?: (recipe: Recipe) => Promise<void>;
 }
 
-export const RecipeCard: React.FC<RecipeCardProps> = ({ 
-  recipe, 
-  index, 
-  isFavorite, 
-  onToggleFavorite, 
-  onDeleteFavorite, 
+export const RecipeCard: React.FC<RecipeCardProps> = ({
+  recipe,
+  index,
+  isFavorite,
+  onToggleFavorite,
+  onDeleteFavorite,
   canAddToFavorites = true,
-  isPremium = false,
+  isLoggedIn = false,
   onGenerateImage
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -182,7 +182,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             {recipe.title}
           </h3>
           
-          <p className="text-gray-700 text-sm mb-2 leading-relaxed line-clamp-2">
+          <p className="text-gray-700 text-sm mb-2 leading-relaxed">
             {recipe.description}
           </p>
         </div>
@@ -275,9 +275,9 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
       className="bg-white/50 backdrop-blur-sm rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all duration-500 flex flex-col relative focus-within:ring-2 focus-within:ring-orange-500/50"
       style={{ animationDelay: `${index * 150}ms` }}
     >
-      {/* Premium Image Trigger / Upsell Area */}
+      {/* Image Generation Area - Available for logged-in users (Free: 3 gift images, Pro: 5/day) */}
       <div className="relative group/image">
-        {isPremium ? (
+        {isLoggedIn ? (
           <button
             onClick={handleGenerateClick}
             disabled={isGeneratingImage}
@@ -297,7 +297,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         ) : (
           <div className="w-full py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-center gap-2">
              <Lock size={12} className="text-slate-400" />
-             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Desbloquear con Premium</span>
+             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Iniciá sesión para generar imágenes</span>
           </div>
         )}
       </div>
