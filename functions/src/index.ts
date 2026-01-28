@@ -568,8 +568,8 @@ interface RawGeminiRecipe {
  * Daily image limits by plan type
  */
 const IMAGE_LIMITS = {
-  monthly: 9999, // TODO: volver a 4 en producción
-  yearly: 9999, // TODO: volver a 7 en producción
+  monthly: 4, // TODO: volver a 4 en producción
+  yearly: 7, // TODO: volver a 7 en producción
 };
 
 /**
