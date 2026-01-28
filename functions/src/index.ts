@@ -24,6 +24,39 @@ setGlobalOptions({maxInstances: 10});
 // ==========================================
 
 /**
+ * Helper: Retry a Mercado Pago operation with exponential backoff.
+ * Handles transient errors (429 rate limit, 500 server errors).
+ * Max 3 retries by default.
+ */
+const retryWithExponentialBackoff = async <T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  operationName: string = "MP Operation"
+): Promise<T> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const isRetryableError = [429, 500, 502, 503, 504].includes(error?.status);
+      const isLastAttempt = attempt === maxRetries;
+
+      if (!isRetryableError || isLastAttempt) {
+        // Not a retryable error or last attempt - throw immediately
+        throw error;
+      }
+
+      // Calculate exponential backoff: 1s, 2s, 4s
+      const delayMs = Math.pow(2, attempt - 1) * 1000;
+      logger.warn(`[${operationName}] Retryable error (status ${error?.status}). Retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`);
+
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error("Max retries exceeded");
+};
+
+/**
  * Creates a subscription link for a user to subscribe to Plan Chef Pro.
  * This uses Mercado Pago's PreApproval (recurring payments) API.
  * Supports 'monthly' and 'yearly' plan types.
@@ -291,7 +324,7 @@ export const mercadoPagoWebhook = onRequest(
 
         // CRÍTICO: El external_reference contiene el userId de Firebase
         const userId = subscription.external_reference;
-        const status = subscription.status;
+        const status = subscription.status as string;
 
         if (!userId) {
           logger.warn("⚠️ [Webhook] No se encontró userId en external_reference");
@@ -299,7 +332,20 @@ export const mercadoPagoWebhook = onRequest(
           return;
         }
 
+        if (!status) {
+          logger.error("⚠️ [Webhook] No se recibió status de Mercado Pago para subscription ${data.id}");
+          response.status(200).send("OK");
+          return;
+        }
+
         logger.info(`👤 [Webhook] Usuario identificado: ${userId}`);
+
+        // Validate status is one of the expected values
+        const validStatuses = ["pending", "authorized", "active", "cancelled", "paused", "suspended"];
+        if (!validStatuses.includes(status)) {
+          logger.warn(`⚠️ [Webhook] Estado inesperado recibido de MP: ${status} (userId: ${userId})`);
+          // Still update Firestore so we have record of this state
+        }
 
         // Update subscription status in Firestore
         const now = new Date().toISOString();
@@ -313,7 +359,8 @@ export const mercadoPagoWebhook = onRequest(
 
         logger.info(`💾 [Webhook] Suscripción actualizada en Firestore: status=${status}`);
 
-        // If subscription is authorized/active, grant premium access INSTANTLY
+        // Sync premium status with subscription state
+        // Active/Authorized: User has access
         if (status === "authorized" || status === "active") {
           await db.collection("users").doc(userId).set({
             isPremium: true,
@@ -322,18 +369,21 @@ export const mercadoPagoWebhook = onRequest(
             premiumUpdatedAt: now,
           }, {merge: true});
 
-          logger.info(`✨ [Webhook] ¡Usuario ${userId} activado como Premium!`);
-        } else if (status === "cancelled" || status === "paused") {
-          // If subscription is cancelled, remove premium access
+          logger.info(`✨ [Webhook] ¡Usuario ${userId} activado como Premium! (status: ${status})`);
+        }
+        // Cancelled/Paused: User loses access
+        else if (status === "cancelled" || status === "paused") {
           await db.collection("users").doc(userId).set({
             isPremium: false,
             premiumEndedAt: now,
             premiumUpdatedAt: now,
           }, {merge: true});
 
-          logger.info(`🌑 [Webhook] Acceso Premium revocado para ${userId}`);
-        } else {
-          logger.info(`ℹ️ [Webhook] Estado no actionable: ${status} para ${userId}`);
+          logger.info(`🌑 [Webhook] Acceso Premium revocado para ${userId} (status: ${status})`);
+        }
+        // Pending/Suspended/Other: No immediate action, keep current premium status
+        else {
+          logger.info(`ℹ️ [Webhook] Estado ${status} - no cambia estado premium de ${userId} (requiere confirmación manual si es necesario)`);
         }
       } else {
         logger.info(`ℹ️ [Webhook] Tipo de notificación ignorado: ${type}`);
@@ -399,66 +449,156 @@ export const cancelSubscription = onCall(
       // Get the subscription ID from Firestore
       const subDoc = await db.collection("subscriptions").doc(userId).get();
 
-      if (!subDoc.exists || !subDoc.data()?.mpId) {
-        logger.warn(`[cancelSubscription] No subscription found for user ${userId}`);
+      if (!subDoc.exists) {
+        logger.warn(`[cancelSubscription] ❌ No subscription document found for user ${userId}`);
         throw new HttpsError(
           "not-found",
           "No se encontró una suscripción activa"
         );
       }
 
-      const subscriptionId = subDoc.data()?.mpId;
-      const currentStatus = subDoc.data()?.status;
-      logger.info(`[cancelSubscription] Found subscription ${subscriptionId}, status: ${currentStatus}`);
+      const subscriptionData = subDoc.data();
+      const subscriptionId = subscriptionData?.mpId;
+      const currentStatus = subscriptionData?.status;
 
-      // Try to cancel in Mercado Pago, but don't fail if it doesn't work
-      let mpCancelled = false;
-      let mpError: string | null = null;
-
-      try {
-        const client = new MercadoPagoConfig({
-          accessToken: mercadoPagoAccessToken.value(),
+      // Validate subscription ID is present and looks valid
+      if (!subscriptionId) {
+        logger.error(`[cancelSubscription] ❌ CRITICAL: mpId is missing for user ${userId}. Current data:`, {
+          status: currentStatus,
+          email: subscriptionData?.email,
+          createdAt: subscriptionData?.createdAt,
         });
-
-        const preApproval = new PreApproval(client);
-        await preApproval.update({
-          id: subscriptionId,
-          body: {status: "cancelled"},
-        });
-        mpCancelled = true;
-        logger.info(`[cancelSubscription] Successfully cancelled in Mercado Pago`);
-      } catch (mpErr: any) {
-        // Log the MP error but continue - we'll still update Firestore
-        mpError = mpErr?.message || "Unknown MP error";
-        logger.warn(`[cancelSubscription] Mercado Pago cancellation failed: ${mpError}`);
-        logger.warn(`[cancelSubscription] Full MP error:`, mpErr);
-
-        // If the subscription is already cancelled or doesn't exist in MP, that's OK
-        // We still want to update our local DB
+        throw new HttpsError(
+          "failed-precondition",
+          "Suscripción encontrada pero sin ID válido. Por favor contacta soporte."
+        );
       }
 
-      // Update Firestore regardless of MP result
-      // This ensures the user can "unsubscribe" even if MP has issues
+      if (typeof subscriptionId !== "string" || subscriptionId.trim().length === 0) {
+        logger.error(`[cancelSubscription] ❌ CRITICAL: mpId is invalid (type: ${typeof subscriptionId}, value: "${subscriptionId}"). User: ${userId}`);
+        throw new HttpsError(
+          "failed-precondition",
+          "El ID de suscripción no es válido. Por favor contacta soporte."
+        );
+      }
+
+      logger.info(`[cancelSubscription] Found subscription mpId: ${subscriptionId}, status: ${currentStatus}`);
+
+      // CRITICAL: Only cancel in Firestore if Mercado Pago cancellation succeeds
+      // If MP fails, throw error immediately to prevent inconsistent state
+      const rawToken = mercadoPagoAccessToken.value();
+      if (!rawToken) {
+        logger.error(`[cancelSubscription] MERCADOPAGO_ACCESS_TOKEN not configured`);
+        throw new HttpsError(
+          "failed-precondition",
+          "Configuración de pagos no disponible"
+        );
+      }
+
+      const accessToken = rawToken.trim();
+      const client = new MercadoPagoConfig({
+        accessToken: accessToken,
+      });
+
+      const preApproval = new PreApproval(client);
+
+      try {
+        logger.info(`[cancelSubscription] Attempting to cancel subscription ${subscriptionId} in Mercado Pago...`);
+
+        // Use retry logic for transient errors (rate limit, server errors)
+        await retryWithExponentialBackoff(
+          () => preApproval.update({
+            id: subscriptionId,
+            body: {status: "cancelled"},
+          }),
+          3,
+          `cancelSubscription[${userId}]`
+        );
+
+        logger.info(`[cancelSubscription] ✅ Successfully cancelled in Mercado Pago for user ${userId}`);
+      } catch (mpErr: any) {
+        // CRITICAL: If Mercado Pago cancellation fails, DO NOT update Firestore
+        // This ensures consistency: local DB reflects reality
+        const errorMessage = mpErr?.message || "Unknown error";
+        const errorStatus = mpErr?.status || "unknown";
+
+        logger.error(`[cancelSubscription] ❌ CRITICAL ERROR - Mercado Pago cancellation FAILED for user ${userId}`);
+        logger.error(`[cancelSubscription] Subscription ID: ${subscriptionId}`);
+        logger.error(`[cancelSubscription] HTTP Status: ${errorStatus}`);
+        logger.error(`[cancelSubscription] Error message: ${errorMessage}`);
+
+        // Diagnose the specific error type
+        let diagnosticInfo = "";
+        if (errorStatus === 401) {
+          diagnosticInfo = "PROBABLE CAUSE: Access token expired or invalid. Token expires every 180 days.";
+        } else if (errorStatus === 404) {
+          diagnosticInfo = "PROBABLE CAUSE: PreApproval ID does not exist in Mercado Pago. Check if ID is correct or if subscription was already deleted.";
+        } else if (errorStatus === 429) {
+          diagnosticInfo = "PROBABLE CAUSE: Rate limit exceeded. Too many requests to Mercado Pago API. Retry with exponential backoff.";
+        } else if (errorStatus === 400) {
+          diagnosticInfo = "PROBABLE CAUSE: Invalid request format or subscription state is not cancellable (e.g., already closed).";
+        } else if (errorStatus === 500) {
+          diagnosticInfo = "PROBABLE CAUSE: Mercado Pago internal server error. This is temporary, retry after waiting.";
+        }
+
+        if (diagnosticInfo) {
+          logger.error(`[cancelSubscription] DIAGNOSIS: ${diagnosticInfo}`);
+        }
+
+        // Log full error details for debugging billing issues
+        if (mpErr?.cause) {
+          logger.error(`[cancelSubscription] Error cause:`, JSON.stringify(mpErr.cause, null, 2));
+        }
+        if (mpErr?.response?.data) {
+          logger.error(`[cancelSubscription] API response data:`, JSON.stringify(mpErr.response.data, null, 2));
+        }
+
+        // Log the entire error object for edge cases
+        logger.error(`[cancelSubscription] Full error object:`, JSON.stringify(mpErr, null, 2));
+
+        // Provide user-friendly error message based on status
+        let userMessage = `No se pudo cancelar la suscripción en Mercado Pago: ${errorMessage}.`;
+        if (errorStatus === 401) {
+          userMessage += " Por favor intenta nuevamente en unos momentos.";
+        } else if (errorStatus === 404) {
+          userMessage += " La suscripción no fue encontrada. Contacta soporte si crees que esto es un error.";
+        } else if (errorStatus === 429) {
+          userMessage += " Demasiados intentos. Espera unos minutos e intenta nuevamente.";
+        } else {
+          userMessage += " Por favor intenta nuevamente o contacta soporte si el problema persiste.";
+        }
+
+        // Throw error to client - user knows cancellation did NOT happen
+        throw new HttpsError(
+          "internal",
+          userMessage
+        );
+      }
+
+      // ONLY reach here if Mercado Pago cancellation succeeded
+      // Now safely update Firestore to reflect the reality
+      logger.info(`[cancelSubscription] Updating Firestore for user ${userId}...`);
+
+      const now = new Date().toISOString();
+
       await db.collection("subscriptions").doc(userId).update({
         status: "cancelled",
-        cancelledAt: new Date().toISOString(),
-        mpCancelled: mpCancelled,
-        mpError: mpError,
+        cancelledAt: now,
+        mpCancelled: true,
+        mpError: null,
       });
 
       await db.collection("users").doc(userId).update({
         isPremium: false,
-        premiumEndedAt: new Date().toISOString(),
+        premiumEndedAt: now,
       });
 
-      logger.info(`[cancelSubscription] Subscription cancelled for user ${userId} (MP: ${mpCancelled ? "yes" : "no"})`);
+      logger.info(`[cancelSubscription] ✅ Subscription successfully cancelled for user ${userId} in both MP and Firestore`);
 
       return {
         success: true,
-        mpCancelled: mpCancelled,
-        message: mpCancelled
-          ? "Suscripción cancelada exitosamente"
-          : "Suscripción cancelada localmente. Si tenés problemas con cobros futuros, contactanos.",
+        mpCancelled: true,
+        message: "Suscripción cancelada exitosamente. No recibirás más cobros.",
       };
     } catch (error: unknown) {
       logger.error("[cancelSubscription] Error:", error);
@@ -565,12 +705,17 @@ interface RawGeminiRecipe {
 // ==========================================
 
 /**
- * Daily image limits by plan type
+ * Daily image limits by plan type (Pro users)
  */
 const IMAGE_LIMITS = {
-  monthly: 4, // TODO: volver a 4 en producción
-  yearly: 7, // TODO: volver a 7 en producción
+  monthly: 5,
+  yearly: 5,
 };
+
+/**
+ * One-time image gift for free users (never resets, use it or lose it)
+ */
+const FREE_TRIAL_IMAGE_LIMIT = 3;
 
 /**
  * Gets today's date in DD-MM-YYYY format for quota tracking
@@ -584,7 +729,9 @@ const getTodayDateKey = (): string => {
 };
 
 /**
- * Checks if user has remaining image quota and returns current usage info
+ * Checks if user has remaining image quota and returns current usage info.
+ * - Pro users: daily limits (5/day, resets each day)
+ * - Free users: one-time gift of 3 images (never resets)
  */
 const checkImageQuota = async (
   userId: string
@@ -593,67 +740,99 @@ const checkImageQuota = async (
   currentCount: number;
   limit: number;
   planType: string;
+  isFreeTrial?: boolean;
+  lifetimeCount?: number;
 }> => {
   const todayKey = getTodayDateKey();
 
+  // Get user document first
+  const userDoc = await db.collection("users").doc(userId).get();
+  const userData = userDoc.exists ? userDoc.data() : null;
+  const isPremium = userData?.isPremium === true;
+
   // Get user's subscription to determine plan type
   const subscriptionDoc = await db.collection("subscriptions").doc(userId).get();
+  const subscriptionData = subscriptionDoc.exists ? subscriptionDoc.data() : null;
 
-  if (!subscriptionDoc.exists) {
-    logger.warn(`⚠️ [checkImageQuota] No subscription found for user ${userId}`);
-    return {canGenerate: false, currentCount: 0, limit: 0, planType: "none"};
+  // Determine if user has an active subscription
+  const hasActiveSubscription = isPremium &&
+    subscriptionData &&
+    (subscriptionData.status === "authorized" || subscriptionData.status === "active");
+
+  // FREE USER LOGIC: Check lifetime image count
+  if (!hasActiveSubscription) {
+    const lifetimeCount = userData?.lifetimeImageCount || 0;
+    const canGenerate = lifetimeCount < FREE_TRIAL_IMAGE_LIMIT;
+
+    logger.info(`🎁 [checkImageQuota] Usuario FREE ${userId}: ${lifetimeCount}/${FREE_TRIAL_IMAGE_LIMIT} imágenes de regalo usadas`);
+
+    return {
+      canGenerate,
+      currentCount: lifetimeCount,
+      limit: FREE_TRIAL_IMAGE_LIMIT,
+      planType: "free",
+      isFreeTrial: true,
+      lifetimeCount,
+    };
   }
 
-  const subscriptionData = subscriptionDoc.data();
+  // PRO USER LOGIC: Check daily quota
   const planType = subscriptionData?.planType || "monthly";
   const limit = IMAGE_LIMITS[planType as keyof typeof IMAGE_LIMITS] || IMAGE_LIMITS.monthly;
 
-  logger.info(`📊 [checkImageQuota] Usuario ${userId}: plan=${planType}, límite=${limit}`);
-
-  // Get today's usage from user document
-  const userDoc = await db.collection("users").doc(userId).get();
-  const userData = userDoc.exists ? userDoc.data() : null;
+  logger.info(`📊 [checkImageQuota] Usuario PRO ${userId}: plan=${planType}, límite diario=${limit}`);
 
   const dailyImageUsage = userData?.dailyImageUsage || {date: "", count: 0};
 
   // If date doesn't match today, reset counter
   if (dailyImageUsage.date !== todayKey) {
     logger.info(`🔄 [checkImageQuota] Nuevo día detectado, reseteando contador para ${userId}`);
-    return {canGenerate: true, currentCount: 0, limit, planType};
+    return {canGenerate: true, currentCount: 0, limit, planType, isFreeTrial: false};
   }
 
   const currentCount = dailyImageUsage.count || 0;
   const canGenerate = currentCount < limit;
 
-  logger.info(`📈 [checkImageQuota] Usuario ${userId}: ${currentCount}/${limit} imágenes hoy`);
+  logger.info(`📈 [checkImageQuota] Usuario PRO ${userId}: ${currentCount}/${limit} imágenes hoy`);
 
-  return {canGenerate, currentCount, limit, planType};
+  return {canGenerate, currentCount, limit, planType, isFreeTrial: false};
 };
 
 /**
- * Increments the daily image counter for a user
+ * Increments the image counter after successful generation.
+ * - Daily counter: resets each day (used for Pro quota)
+ * - Lifetime counter: never resets (tracks one-time free gift usage)
  */
-const incrementImageCounter = async (userId: string): Promise<void> => {
+const incrementImageCounter = async (userId: string, isFreeTrial: boolean = false): Promise<void> => {
   const todayKey = getTodayDateKey();
 
   // Get current usage
   const userDoc = await db.collection("users").doc(userId).get();
   const userData = userDoc.exists ? userDoc.data() : null;
   const dailyImageUsage = userData?.dailyImageUsage || {date: "", count: 0};
+  const currentLifetimeCount = userData?.lifetimeImageCount || 0;
 
   // If it's a new day, start fresh; otherwise increment
-  const newCount = dailyImageUsage.date === todayKey
+  const newDailyCount = dailyImageUsage.date === todayKey
     ? (dailyImageUsage.count || 0) + 1
     : 1;
+
+  // Always increment lifetime count for tracking purposes
+  const newLifetimeCount = currentLifetimeCount + 1;
 
   await db.collection("users").doc(userId).set({
     dailyImageUsage: {
       date: todayKey,
-      count: newCount,
+      count: newDailyCount,
     },
+    lifetimeImageCount: newLifetimeCount,
   }, {merge: true});
 
-  logger.info(`✅ [incrementImageCounter] Usuario ${userId}: contador actualizado a ${newCount}`);
+  if (isFreeTrial) {
+    logger.info(`🎁 [incrementImageCounter] Usuario FREE ${userId}: ${newLifetimeCount}/${FREE_TRIAL_IMAGE_LIMIT} imágenes de regalo usadas`);
+  } else {
+    logger.info(`✅ [incrementImageCounter] Usuario PRO ${userId}: contador diario=${newDailyCount}, lifetime=${newLifetimeCount}`);
+  }
 };
 
 // ==========================================
@@ -672,7 +851,6 @@ export const generateRecipes = onCall(
         ingredients,
         useStrictMatching,
         excludeRecipes,
-        isPremium,
         dietFilters,
         shouldGenerateImage,
       } = request.data;
@@ -850,13 +1028,17 @@ OTRAS REGLAS:
           } : undefined,
         };
 
-        // Generate image only if isPremium AND shouldGenerateImage are both true
-        // Also check daily quota if user is authenticated
-        if (isPremium === true && shouldGenerateImage !== false) {
+        // Generate image if shouldGenerateImage is true AND user has quota available
+        // Works for both Pro users (daily quota) and Free users (lifetime trial)
+        // Login is REQUIRED to generate images
+        if (shouldGenerateImage !== false) {
           const userId = request.auth?.uid;
 
-          if (userId) {
-            // Check quota before generating
+          if (!userId) {
+            // No authenticated user - login required for image generation
+            logger.info("🔒 [generateRecipes] Login requerido para generar imágenes");
+          } else {
+            // Check quota before generating (works for both Pro and Free users)
             const quota = await checkImageQuota(userId);
 
             if (quota.canGenerate) {
@@ -864,18 +1046,13 @@ OTRAS REGLAS:
               if (imageResult.imageUrl) {
                 recipe.imageUrl = imageResult.imageUrl;
                 // Increment counter after successful generation
-                await incrementImageCounter(userId);
-                logger.info(`🖼️ [generateRecipes] Imagen generada para usuario ${userId} (${quota.currentCount + 1}/${quota.limit})`);
+                await incrementImageCounter(userId, quota.isFreeTrial);
+                const quotaType = quota.isFreeTrial ? "regalo" : "diarias";
+                logger.info(`🖼️ [generateRecipes] Imagen generada para usuario ${userId} (${quota.currentCount + 1}/${quota.limit} ${quotaType})`);
               }
             } else {
-              logger.info(`🚫 [generateRecipes] Usuario ${userId} alcanzó límite de imágenes (${quota.currentCount}/${quota.limit})`);
-            }
-          } else {
-            // No authenticated user, generate without quota check (shouldn't happen in production)
-            logger.warn("⚠️ [generateRecipes] Usuario premium sin autenticación, generando sin cuota");
-            const imageResult = await generateRecipeImage(ai, recipe.title);
-            if (imageResult.imageUrl) {
-              recipe.imageUrl = imageResult.imageUrl;
+              const quotaType = quota.isFreeTrial ? "imágenes de regalo" : "imágenes diarias";
+              logger.info(`🚫 [generateRecipes] Usuario ${userId} alcanzó límite de ${quotaType} (${quota.currentCount}/${quota.limit})`);
             }
           }
         }
@@ -897,8 +1074,8 @@ OTRAS REGLAS:
 
 /**
  * Generates an image for a specific recipe title.
- * Exclusive for Premium users to use "on-demand".
- * Includes daily quota limits based on subscription plan.
+ * Available for both Pro users (daily quota) and Free users (lifetime trial).
+ * Login is REQUIRED.
  */
 export const generateSingleRecipeImage = onCall(
   {
@@ -910,7 +1087,7 @@ export const generateSingleRecipeImage = onCall(
     logger.info("🎨 [generateSingleRecipeImage] Iniciando generación bajo demanda...");
 
     try {
-      // Verify user is authenticated
+      // Verify user is authenticated - LOGIN IS REQUIRED
       if (!request.auth) {
         logger.warn("❌ [generateSingleRecipeImage] Usuario no autenticado");
         throw new HttpsError(
@@ -920,17 +1097,9 @@ export const generateSingleRecipeImage = onCall(
       }
 
       const userId = request.auth.uid;
-      const {title, isPremium} = request.data;
+      const {title} = request.data;
 
-      logger.info(`📋 [generateSingleRecipeImage] Usuario: ${userId}, Título: ${title}, Premium: ${isPremium}`);
-
-      if (!isPremium) {
-        logger.warn("❌ [generateSingleRecipeImage] Intento de acceso no premium");
-        throw new HttpsError(
-          "permission-denied",
-          "Esta función es exclusiva para usuarios Chef Pro"
-        );
-      }
+      logger.info(`📋 [generateSingleRecipeImage] Usuario: ${userId}, Título: ${title}`);
 
       if (!title) {
         logger.warn("❌ [generateSingleRecipeImage] Título ausente");
@@ -940,18 +1109,24 @@ export const generateSingleRecipeImage = onCall(
         );
       }
 
-      // Check daily quota BEFORE calling Vertex AI
+      // Check quota BEFORE calling Gemini - works for both Pro and Free users
       const quota = await checkImageQuota(userId);
 
       if (!quota.canGenerate) {
-        logger.warn(`🚫 [generateSingleRecipeImage] Usuario ${userId} alcanzó el límite diario (${quota.currentCount}/${quota.limit})`);
+        const quotaType = quota.isFreeTrial ? "de regalo" : "diarias";
+        const nextAction = quota.isFreeTrial
+          ? "¡Pasate a Chef Pro para tener 5 imágenes nuevas cada día!"
+          : "Mañana tendrás nuevas imágenes disponibles.";
+
+        logger.warn(`🚫 [generateSingleRecipeImage] Usuario ${userId} alcanzó el límite ${quotaType} (${quota.currentCount}/${quota.limit})`);
         throw new HttpsError(
           "resource-exhausted",
-          "Has alcanzado el límite de imágenes diarias de tu plan Chef Pro. Mañana tendrás nuevas imágenes disponibles."
+          `¡Agotaste tus ${quota.limit} imágenes ${quotaType}! ${nextAction}`
         );
       }
 
-      logger.info(`✅ [generateSingleRecipeImage] Cuota verificada: ${quota.currentCount}/${quota.limit} (plan ${quota.planType})`);
+      const quotaType = quota.isFreeTrial ? "regalo" : quota.planType;
+      logger.info(`✅ [generateSingleRecipeImage] Cuota verificada: ${quota.currentCount}/${quota.limit} (${quotaType})`);
 
       const ai = new GoogleGenAI({apiKey: geminiApiKey.value()});
 
@@ -959,7 +1134,7 @@ export const generateSingleRecipeImage = onCall(
       const imageResult = await generateRecipeImage(ai, title);
 
       if (imageResult.error) {
-        logger.error(`❌ [generateSingleRecipeImage] Error de Vertex AI: ${imageResult.error}`);
+        logger.error(`❌ [generateSingleRecipeImage] Error de Gemini: ${imageResult.error}`);
         throw new HttpsError(
           "internal",
           `No se pudo generar la imagen: ${imageResult.error}`
@@ -967,7 +1142,7 @@ export const generateSingleRecipeImage = onCall(
       }
 
       if (!imageResult.imageUrl) {
-        logger.error("❌ [generateSingleRecipeImage] Vertex AI no devolvió ninguna imagen");
+        logger.error("❌ [generateSingleRecipeImage] Gemini no devolvió ninguna imagen");
         throw new HttpsError(
           "internal",
           "No se pudo generar la imagen en este momento. Intentá nuevamente."
@@ -975,10 +1150,20 @@ export const generateSingleRecipeImage = onCall(
       }
 
       // Increment counter ONLY after successful generation
-      await incrementImageCounter(userId);
+      await incrementImageCounter(userId, quota.isFreeTrial);
 
-      logger.info("✅ [generateSingleRecipeImage] Imagen generada exitosamente");
-      return {imageUrl: imageResult.imageUrl};
+      // Return quota info along with the image for frontend display
+      const remaining = quota.limit - quota.currentCount - 1;
+      logger.info(`✅ [generateSingleRecipeImage] Imagen generada. Quedan ${remaining}/${quota.limit} imágenes`);
+
+      return {
+        imageUrl: imageResult.imageUrl,
+        quota: {
+          remaining,
+          limit: quota.limit,
+          isFreeTrial: quota.isFreeTrial,
+        },
+      };
     } catch (error: unknown) {
       logger.error("💥 [generateSingleRecipeImage] Error crítico:", error);
       if (error instanceof HttpsError) throw error;
