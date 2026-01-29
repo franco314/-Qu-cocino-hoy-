@@ -1,0 +1,62 @@
+name: 🚀 Deploy a Firebase
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Permite ejecutar manualmente desde GitHub
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  deploy:
+    name: Build y Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descargar el código del repositorio
+      - name: 📥 Checkout código
+        uses: actions/checkout@v4
+
+      # 2. Configurar Node.js
+      - name: 🔧 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # 3. Instalar dependencias del frontend
+      - name: 📦 Instalar dependencias (frontend)
+        run: npm install
+
+      # 4. Instalar dependencias de funciones
+      - name: 📦 Instalar dependencias (functions)
+        run: npm install --prefix functions
+
+      # 5. Build del frontend
+      - name: 🏗️ Build frontend (Vite)
+        run: npm run build
+
+      # 6. Build de funciones (TypeScript → JavaScript)
+      - name: 🏗️ Build functions (TypeScript)
+        run: npm run build --prefix functions
+
+      # 7. Deploy a Firebase
+      - name: 🔥 Deploy a Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_QUE_COCINO_HOY }}'
+          projectId: que-cocino-hoy-f06bd
+          channelId: live
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+      # 8. Notificación de éxito
+      - name: ✅ Deploy exitoso
+        run: echo "✨ Cambios desplegados a https://que-cocino-hoy-f06bd.web.app"
+
+      # 9. Notificación de error (si algo falla)
+      - name: ❌ Deploy falló
+        if: failure()
+        run: echo "⚠️ El deploy falló. Revisa los logs arriba."
