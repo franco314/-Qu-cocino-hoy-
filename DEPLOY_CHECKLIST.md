@@ -361,15 +361,7 @@ firebase deploy --only hosting,functions
 
 ### CON ramas (mejor)
 ```bash
-# 1. Crear rama
-git checkout -b feature/agregar-banana-atajo
-
-# 2. Editar el archivo
-# Editaste IngredientInput.tsx
-
-# 3. Commit en la rama
-git add components/IngredientInput.tsx
-git commit -m "feat: agregar Banana a atajos"
+ 
 
 # 4. Subir rama a GitHub
 git push origin feature/agregar-banana-atajo

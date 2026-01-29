@@ -922,6 +922,7 @@ Generá una receta rica y simple.
 
 REGLA #1 - TÍTULOS (MUY IMPORTANTE):
 - Usá nombres atractivos que no por eso sean rimbombantes. El titulo debe reflejar lo que expresa la receta.
+- CAPITALIZACIÓN: Solo la primera letra del título debe estar en mayúscula. El resto en minúsculas. Ejemplo: "Arroz campero con pollo y queso derretido" (CORRECTO), NO "Arroz Campero Con Pollo Y Queso Derretido" (INCORRECTO).
 - PALABRAS 100% PROHIBIDAS en títulos: rösti, emulsión, reducción, fondant, confitado, carpaccio, tataki, velouté, coulant, crème, brunoise, chiffonade, glasé, flambeado, escabeche gourmet
 - Ni el titulo ni el contenido deben ser complejos, pero tampoco caigas en la simplicidad de "Pollo con arroz" o "Fideos con manteca y queso", buscá un término medio.
 
@@ -933,7 +934,7 @@ OTRAS REGLAS:
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              title: {type: Type.STRING, description: "Nombre simple y atractivo. PROHIBIDO: rösti, emulsión, reducción, crocante, corazón de, confitado, y cualquier palabra de restaurante fancy."},
+              title: {type: Type.STRING, description: "Nombre simple y atractivo con solo la primera letra en mayúscula, el resto en minúsculas. PROHIBIDO: rösti, emulsión, reducción, crocante, corazón de, confitado, y cualquier palabra de restaurante fancy."},
               description: {type: Type.STRING, description: "Breve descripción apetitosa y formal (máximo 35 palabras)"},
               preparationTime: {type: Type.STRING, description: "Tiempo estimado (ej. 30 min)"},
               difficulty: {type: Type.STRING, description: "Fácil, Media o Difícil"},
