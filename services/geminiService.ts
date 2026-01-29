@@ -60,56 +60,60 @@ export const generateRecipes = async (
 };
 
 /**
+ * Response type for image generation including quota information
+ */
+export interface ImageGenerationResult {
+  imageUrl: string;
+  quota?: {
+    remaining: number;
+    limit: number;
+    isFreeTrial: boolean;
+  };
+}
+
+/**
  * Generates a single image for a recipe title.
- * Firebase Cloud Functions errors are caught and translated to user-friendly messages.
- * The backend sends specific error messages that we extract here for the user.
+ * - Pro users: 5 images/day (resets daily)
+ * - Free users: 3 images one-time gift (never resets)
+ * Login is REQUIRED.
  */
 export const generateSingleImage = async (
-  title: string,
-  isPremium: boolean = false
-): Promise<string> => {
+  title: string
+): Promise<ImageGenerationResult> => {
   try {
     const generateImageFunction = httpsCallable(functions, "generateSingleRecipeImage");
-    const response = await generateImageFunction({ title, isPremium });
-    const data = response.data as { imageUrl: string };
+    const response = await generateImageFunction({ title });
+    const data = response.data as ImageGenerationResult;
 
     if (!data || !data.imageUrl) {
       throw new Error("No se pudo obtener la imagen");
     }
 
-    return data.imageUrl;
+    return data;
   } catch (error: any) {
     console.error("Error generating single image:", error);
 
     // Handle Firebase Cloud Function errors
-    // Extract error code and message - Firebase preserves the message from backend HttpsError
     const errorCode = error.code || '';
     let errorMessage = error.message || '';
 
-    // Clean up Firebase's error code format (remove 'functions/' prefix for matching)
+    // Clean up Firebase's error code format
     const cleanErrorCode = errorCode.replace('functions/', '');
 
-    // Try to extract the actual error message from various possible locations
-    // Firebase Cloud Functions may put the message in different places
+    // Try to extract the actual error message
     if (!errorMessage && error.details) {
       errorMessage = error.details;
     }
 
     // If we got a specific error message from the backend, use it as-is
-    // The backend sends descriptive messages like:
-    // - "Has alcanzado el límite de imágenes diarias..."
-    // - "No se pudo generar la imagen: {specific error}"
     if (errorMessage && errorMessage.trim().length > 0) {
       throw new Error(errorMessage);
     }
 
     // Fallback messages for specific error codes
-    // These act as defaults if the backend message wasn't extracted
     const fallbackMessages: { [key: string]: string } = {
       'resource-exhausted':
-        "Has alcanzado el límite de imágenes diarias de tu plan Chef Pro. Mañana tendrás nuevas imágenes disponibles.",
-      'permission-denied':
-        "Esta función es exclusiva para usuarios Chef Pro",
+        "¡Agotaste tus imágenes! Pasate a Chef Pro para tener 5 nuevas imágenes cada día.",
       'unauthenticated':
         "Debes iniciar sesión para generar imágenes",
       'invalid-argument':

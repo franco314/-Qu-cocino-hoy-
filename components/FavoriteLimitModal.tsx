@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Lock, Star, Loader2, AlertCircle, RefreshCw, Check, Sparkles } from 'lucide-react';
+import { X, Lock, Star, Loader2, AlertCircle, RefreshCw, Check, Sparkles, Image } from 'lucide-react';
 
 type PlanType = 'monthly' | 'yearly';
 
 // Context types for different modal behaviors
-export type ModalContext = 'home' | 'favorites' | 'limit';
+export type ModalContext = 'home' | 'favorites' | 'limit' | 'images';
 
 interface FavoriteLimitModalProps {
   isOpen: boolean;
@@ -28,16 +28,35 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade, context = 'limi
 
   // Dynamic content based on context
   const isAspirational = context === 'home';
+  const isImageContext = context === 'images';
 
-  const modalContent = {
-    title: isAspirational
-      ? 'Subí de nivel con el Plan Chef Pro'
-      : '¡Llegaste al límite del plan gratuito!',
-    description: isAspirational
-      ? 'Accedé a fotos ultra-realistas de tus platos y recetas ilimitadas.'
-      : 'Guardá recetas ilimitadas y desbloqueá fotos generadas con IA con el',
-    showPlanBadge: !isAspirational,
+  const getModalContent = () => {
+    if (isAspirational) {
+      return {
+        title: 'Subí de nivel con el Plan Chef Pro',
+        description: 'Accedé a fotos ultra-realistas de tus platos y recetas ilimitadas.',
+        showPlanBadge: false,
+        icon: 'sparkles',
+      };
+    }
+    if (isImageContext) {
+      return {
+        title: '¡Agotaste tus 3 imágenes de regalo!',
+        description: 'Pasate a Chef Pro para tener 5 imágenes nuevas cada día con el',
+        showPlanBadge: true,
+        icon: 'image',
+      };
+    }
+    // Default: limit or favorites
+    return {
+      title: '¡Llegaste al límite del plan gratuito!',
+      description: 'Guardá recetas ilimitadas y desbloqueá fotos generadas con IA con el',
+      showPlanBadge: true,
+      icon: 'lock',
+    };
   };
+
+  const modalContent = getModalContent();
 
   if (!isOpen) return null;
 
@@ -106,10 +125,14 @@ export const FavoriteLimitModal = ({ isOpen, onClose, onUpgrade, context = 'limi
             <div className={`w-20 h-20 rounded-full flex items-center justify-center ${
               isAspirational
                 ? 'bg-gradient-to-br from-orange-400 to-orange-600'
-                : 'bg-gradient-to-br from-orange-100 to-orange-200'
+                : isImageContext
+                  ? 'bg-gradient-to-br from-purple-400 to-purple-600'
+                  : 'bg-gradient-to-br from-orange-100 to-orange-200'
             }`}>
-              {isAspirational ? (
+              {modalContent.icon === 'sparkles' ? (
                 <Sparkles className="w-10 h-10 text-white" />
+              ) : modalContent.icon === 'image' ? (
+                <Image className="w-10 h-10 text-white" />
               ) : (
                 <Lock className="w-10 h-10 text-orange-600" />
               )}

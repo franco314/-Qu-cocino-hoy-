@@ -16,8 +16,8 @@ export default defineConfig(({ mode }) => {
           registerType: 'prompt',
           includeAssets: ['apple-touch-icon.png'],
           manifest: {
-            name: 'Qué cocino hoy',
-            short_name: 'CocinoHoy',
+            name: '¿Qué cocino hoy?',
+            short_name: '¿Qué cocino hoy?',
             description: 'Tu asistente de cocina con IA',
             theme_color: '#f97316',
             background_color: '#f9fafb',

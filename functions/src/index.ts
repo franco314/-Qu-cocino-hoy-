@@ -906,7 +906,7 @@ ${exclusions ? `<EXCLUSIONES>\n${exclusions}\n</EXCLUSIONES>` : ""}
 ${dietInstruction ? `<RESTRICCIONES_DIETÉTICAS>\n${dietInstruction}\n</RESTRICCIONES_DIETÉTICAS>` : ""}
 
 <TAREA>
-Generá una receta rica y simple.
+Generá una receta rica y simple. 
 1. Título simple. Sin palabras fancy como rösti, emulsión, reducción, corazón de.
 2. Instrucciones claras, sin caer en complejidades innecesarias.
 3. Cantidades exactas en gramos para el cálculo de macros.
@@ -918,12 +918,12 @@ Generá una receta rica y simple.
         model: modelId,
         contents: prompt,
         config: {
-          systemInstruction: `Sos un cocinero de casa argentino con experiencia y muy buen cocinero.
+          systemInstruction: `Sos un muy buen cocinero argentino con experiencia.
 
 REGLA #1 - TÍTULOS (MUY IMPORTANTE):
 - Usá nombres atractivos que no por eso sean rimbombantes. El titulo debe reflejar lo que expresa la receta.
 - PALABRAS 100% PROHIBIDAS en títulos: rösti, emulsión, reducción, fondant, confitado, carpaccio, tataki, velouté, coulant, crème, brunoise, chiffonade, glasé, flambeado, escabeche gourmet
-- Si el título suena a carta de restaurante, ESTÁ MAL. Reescribilo más simple.
+- Ni el titulo ni el contenido deben ser complejos, pero tampoco caigas en la simplicidad de "Pollo con arroz" o "Fideos con manteca y queso", buscá un término medio.
 
 OTRAS REGLAS:
 - Hablá con voseo (cortá, mezclá, poné)
