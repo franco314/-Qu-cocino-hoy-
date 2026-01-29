@@ -82,41 +82,44 @@ export const IngredientInput: React.FC<IngredientInputProps> = ({
         }}
       >
         <span className="sr-only">Ingresá los ingredientes que tenés en tu cocina</span>
-        <div className="flex flex-wrap gap-2 items-center">
-          <Search className="text-gray-400 w-5 h-5 mr-1" aria-hidden="true" />
+        {/* Contenedor con altura estable para evitar Layout Shift en mobile */}
+        <div className="min-h-[60px] max-h-[200px] md:max-h-[350px] overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide [-webkit-overflow-scrolling:touch]">
+          <div className="flex flex-wrap gap-2 items-center content-start">
+            <Search className="text-gray-400 w-5 h-5 mr-1 flex-shrink-0" aria-hidden="true" />
 
-          {ingredients.map((ing, index) => (
-            <span
-              key={index}
-              className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-orange-100 text-orange-800 animate-fadeIn shadow-sm"
-            >
-              {ing}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(ing);
-                }}
-                aria-label={`Eliminar ingrediente ${ing}`}
-                className="ml-2 p-0.5 rounded-full hover:bg-orange-200 text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20"
+            {ingredients.map((ing, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-orange-100 text-orange-800 animate-fadeIn shadow-sm"
               >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </span>
-          ))}
+                {ing}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(ing);
+                  }}
+                  aria-label={`Eliminar ingrediente ${ing}`}
+                  className="ml-2 p-0.5 rounded-full hover:bg-orange-200 text-orange-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-orange-500/20"
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </span>
+            ))}
 
-          <input
-            id="ingredient-input"
-            ref={inputRef}
-            type="text"
-            className="flex-grow min-w-[150px] outline-none bg-transparent text-lg placeholder-gray-400 text-gray-900 h-10"
-            placeholder={ingredients.length === 0 ? "Escribí lo que tenés (ej: pollo, arroz...)" : "Agregá otro ingrediente..."}
-            value={inputValue}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onBlur={addIngredient}
-            autoComplete="off"
-          />
+            <input
+              id="ingredient-input"
+              ref={inputRef}
+              type="text"
+              className="flex-grow min-w-[150px] outline-none bg-transparent text-lg placeholder-gray-400 text-gray-900 h-10"
+              placeholder={ingredients.length === 0 ? "Escribí lo que tenés (ej: pollo, arroz...)" : "Agregá otro ingrediente..."}
+              value={inputValue}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onBlur={addIngredient}
+              autoComplete="off"
+            />
+          </div>
         </div>
       </label>
 

@@ -602,15 +602,18 @@ export const HomePage = () => {
                   </p>
                 </div>
 
-                {/* Floating UI Container - Glassmorphism sutil */}
-                <div className="w-full max-w-2xl bg-white/80 backdrop-blur-md rounded-3xl p-6 md:p-8 animate-fade-in-up shadow-lg border border-white/30">
-                  <IngredientInput
-                    ingredients={ingredients}
-                    onAdd={handleAddIngredient}
-                    onRemove={handleRemoveIngredient}
-                    history={history}
-                    onSelectHistory={handleSelectHistory}
-                  />
+                {/* Floating UI Container - Glassmorphism sutil con altura estable para evitar Layout Shift */}
+                <div className="w-full max-w-2xl bg-white/80 backdrop-blur-md rounded-3xl p-6 md:p-8 animate-fade-in-up shadow-lg border border-white/30 flex flex-col min-h-[480px] md:min-h-[520px]">
+                  {/* Área de ingredientes - flex-grow para ocupar espacio disponible */}
+                  <div className="flex-grow-0">
+                    <IngredientInput
+                      ingredients={ingredients}
+                      onAdd={handleAddIngredient}
+                      onRemove={handleRemoveIngredient}
+                      history={history}
+                      onSelectHistory={handleSelectHistory}
+                    />
+                  </div>
 
                   {error && (
                     <div className="mt-4 p-4 rounded-xl bg-red-500/90 text-white text-center text-sm font-medium animate-shake backdrop-blur-sm">
@@ -618,100 +621,103 @@ export const HomePage = () => {
                     </div>
                   )}
 
-                  {/* Toggle Switch - Glassmorphism style */}
-                  <div className="mt-6 flex justify-center">
-                    <div className="bg-white/80 backdrop-blur-sm p-1 rounded-full flex w-full max-w-[340px] shadow-lg">
+                  {/* Sección inferior fija - siempre visible */}
+                  <div className="mt-auto pt-4">
+                    {/* Toggle Switch - Glassmorphism style */}
+                    <div className="flex justify-center">
+                      <div className="bg-white/80 backdrop-blur-sm p-1 rounded-full flex w-full max-w-[340px] shadow-lg">
+                        <button
+                          onClick={() => setUseStrictMatching(false)}
+                          className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                            !useStrictMatching ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          <Layers size={16} />
+                          <span>Usar algunos</span>
+                        </button>
+                        <button
+                          onClick={() => setUseStrictMatching(true)}
+                          className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
+                            useStrictMatching ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          <CheckCircle2 size={16} />
+                          <span>Usar todo</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Diet Filters - Floating chips */}
+                    <div className="mt-5 flex gap-2 justify-center flex-wrap">
+                      {/* Vegetariano - Available for all */}
                       <button
-                        onClick={() => setUseStrictMatching(false)}
-                        className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                          !useStrictMatching ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-800'
+                        onClick={() => setDietFilters(prev => ({ ...prev, vegetarian: !prev.vegetarian }))}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                          dietFilters.vegetarian
+                            ? 'bg-green-500 text-white'
+                            : 'bg-white/90 text-gray-700 hover:bg-white'
                         }`}
                       >
-                        <Layers size={16} />
-                        <span>Usar algunos</span>
+                        <Leaf size={14} />
+                        <span>Vegetariano</span>
                       </button>
+
+                      {/* Sin TACC - Premium only */}
                       <button
-                        onClick={() => setUseStrictMatching(true)}
-                        className={`flex-1 py-2 px-4 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                          useStrictMatching ? 'bg-white text-gray-900 shadow-md' : 'text-gray-600 hover:text-gray-800'
+                        onClick={() => {
+                          if (!isPremium) {
+                            openPremiumModal('home');
+                          } else {
+                            setDietFilters(prev => ({ ...prev, glutenFree: !prev.glutenFree }));
+                          }
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                          !isPremium
+                            ? 'bg-white/60 text-gray-400 hover:bg-white/80'
+                            : dietFilters.glutenFree
+                              ? 'bg-amber-500 text-white'
+                              : 'bg-white/90 text-gray-700 hover:bg-white'
                         }`}
+                        title={!isPremium ? 'Disponible en Plan Chef Pro' : 'Filtrar recetas sin gluten'}
                       >
-                        <CheckCircle2 size={16} />
-                        <span>Usar todo</span>
+                        {!isPremium && <Lock size={12} />}
+                        <Wheat size={14} />
+                        <span>Sin TACC</span>
+                      </button>
+
+                      {/* Generate Image Toggle - Available for logged-in users (Free: 3 gift images, Pro: 5/day) */}
+                      <button
+                        onClick={() => {
+                          if (!user) {
+                            openPremiumModal('home');
+                          } else {
+                            setWithImage(prev => !prev);
+                          }
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
+                          !user
+                            ? 'bg-white/60 text-gray-400 hover:bg-white/80'
+                            : withImage
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-white/90 text-gray-700 hover:bg-white'
+                        }`}
+                        title={!user ? 'Iniciá sesión para generar imágenes' : withImage ? 'Generar imagen del plato (activo)' : 'Generar imagen del plato (desactivado)'}
+                      >
+                        {!user && <Lock size={12} />}
+                        <Image size={14} />
+                        <span>Con imagen</span>
                       </button>
                     </div>
-                  </div>
 
-                  {/* Diet Filters - Floating chips */}
-                  <div className="mt-5 flex gap-2 justify-center flex-wrap">
-                    {/* Vegetariano - Available for all */}
+                    {/* Generate Button - Prominent CTA */}
                     <button
-                      onClick={() => setDietFilters(prev => ({ ...prev, vegetarian: !prev.vegetarian }))}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
-                        dietFilters.vegetarian
-                          ? 'bg-green-500 text-white'
-                          : 'bg-white/90 text-gray-700 hover:bg-white'
-                      }`}
+                      onClick={handleGenerate}
+                      className="mt-6 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 hover:-translate-y-1 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-3"
                     >
-                      <Leaf size={14} />
-                      <span>Vegetariano</span>
-                    </button>
-
-                    {/* Sin TACC - Premium only */}
-                    <button
-                      onClick={() => {
-                        if (!isPremium) {
-                          openPremiumModal('home');
-                        } else {
-                          setDietFilters(prev => ({ ...prev, glutenFree: !prev.glutenFree }));
-                        }
-                      }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
-                        !isPremium
-                          ? 'bg-white/60 text-gray-400 hover:bg-white/80'
-                          : dietFilters.glutenFree
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-white/90 text-gray-700 hover:bg-white'
-                      }`}
-                      title={!isPremium ? 'Disponible en Plan Chef Pro' : 'Filtrar recetas sin gluten'}
-                    >
-                      {!isPremium && <Lock size={12} />}
-                      <Wheat size={14} />
-                      <span>Sin TACC</span>
-                    </button>
-
-                    {/* Generate Image Toggle - Available for logged-in users (Free: 3 gift images, Pro: 5/day) */}
-                    <button
-                      onClick={() => {
-                        if (!user) {
-                          openPremiumModal('home');
-                        } else {
-                          setWithImage(prev => !prev);
-                        }
-                      }}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-300 shadow-md backdrop-blur-sm ${
-                        !user
-                          ? 'bg-white/60 text-gray-400 hover:bg-white/80'
-                          : withImage
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-white/90 text-gray-700 hover:bg-white'
-                      }`}
-                      title={!user ? 'Iniciá sesión para generar imágenes' : withImage ? 'Generar imagen del plato (activo)' : 'Generar imagen del plato (desactivado)'}
-                    >
-                      {!user && <Lock size={12} />}
-                      <Image size={14} />
-                      <span>Con imagen</span>
+                      <Sparkles className="w-5 h-5" />
+                      Crear con AI
                     </button>
                   </div>
-
-                  {/* Generate Button - Prominent CTA */}
-                  <button
-                    onClick={handleGenerate}
-                    className="mt-8 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 hover:-translate-y-1 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-3"
-                  >
-                    <Sparkles className="w-5 h-5" />
-                    Crear con AI
-                  </button>
                 </div>
               </div>
             )}
