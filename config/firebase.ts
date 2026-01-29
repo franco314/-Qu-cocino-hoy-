@@ -5,13 +5,13 @@ import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCu2bc8xRiKW4vvCXwPkSG69OKoupn1rVQ",
-  authDomain: "que-cocino-hoy-f06bd.firebaseapp.com",
-  projectId: "que-cocino-hoy-f06bd",
-  storageBucket: "que-cocino-hoy-f06bd.firebasestorage.app",
-  messagingSenderId: "26918451916",
-  appId: "1:26918451916:web:8b9dd39de13908461ae069",
-  measurementId: "G-H8DHCL2ZVJ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "que-cocino-hoy-f06bd.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "que-cocino-hoy-f06bd",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "que-cocino-hoy-f06bd.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "26918451916",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:26918451916:web:8b9dd39de13908461ae069",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-H8DHCL2ZVJ"
 };
 
 // Initialize Firebase
